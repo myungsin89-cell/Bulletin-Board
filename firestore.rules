@@ -1,0 +1,142 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper Functions
+    function isAuthenticated() {
+      return true; // Public access for simple name-based login
+    }
+    function isOwner(userId) {
+      return true;
+    }
+    function isDocOwner() {
+      return true;
+    }
+    function uidUnchanged() {
+      return true;
+    }
+    function uidNotModified() {
+      return true;
+    }
+
+    // Domain Validators
+    function isValidUser(data) {
+      return data.keys().hasOnly(['uid', 'displayName', 'email', 'role', 'createdAt']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() < 100 &&
+             data.role in ['teacher', 'admin'] &&
+             data.createdAt is string;
+    }
+
+    function isValidNotice(data) {
+      return data.keys().hasAll(['title', 'content', 'authorId', 'authorName', 'isImportant', 'createdAt']) &&
+             data.keys().hasOnly(['title', 'content', 'authorId', 'authorName', 'isImportant', 'createdAt', 'imageUrl']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 50000 &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
+             data.isImportant is bool &&
+             data.createdAt is timestamp &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 1000));
+    }
+
+    function isValidEvent(data) {
+      return data.keys().hasAll(['title', 'start', 'end', 'allDay', 'authorId', 'authorName', 'createdAt']) &&
+             data.keys().hasOnly(['title', 'start', 'end', 'allDay', 'authorId', 'authorName', 'createdAt']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.start is string && data.start.size() > 0 && data.start.size() < 50 &&
+             data.end is string && data.end.size() > 0 && data.end.size() < 50 &&
+             data.allDay is bool &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidOpinion(data) {
+      return data.keys().hasAll(['title', 'description', 'authorId', 'authorName', 'options', 'votes', 'createdAt']) &&
+             data.keys().hasOnly(['title', 'description', 'authorId', 'authorName', 'options', 'votes', 'createdAt']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.description is string && data.description.size() >= 0 && data.description.size() < 5000 &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
+             data.options is list && data.options.size() > 0 && data.options.size() <= 10 &&
+             data.votes is map &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidReservation(data) {
+      return data.keys().hasAll(['equipmentId', 'equipmentName', 'date', 'period', 'authorId', 'authorName', 'createdAt']) &&
+             data.keys().hasOnly(['equipmentId', 'equipmentName', 'date', 'period', 'authorId', 'authorName', 'createdAt']) &&
+             data.equipmentId is string && data.equipmentId.size() > 0 && data.equipmentId.size() < 100 &&
+             data.equipmentName is string && data.equipmentName.size() > 0 && data.equipmentName.size() < 100 &&
+             data.date is string && data.date.size() > 0 && data.date.size() < 20 &&
+             data.period is number && data.period >= 1 && data.period <= 6 &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidSheetCard(data) {
+      return data.keys().hasAll(['title', 'category', 'authorId', 'authorName', 'createdAt']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.category in ['password', 'equipment', 'tips', 'duty', 'general'] &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
+             data.createdAt is timestamp &&
+             (!('description' in data) || data.description is string) &&
+             (!('type' in data) || data.type in ['sheet', 'memo']) &&
+             (!('content' in data) || data.content is string) &&
+             (!('sheetUrl' in data) || data.sheetUrl is string) &&
+             (!('gid' in data) || data.gid is string) &&
+             (!('isImportant' in data) || data.isImportant is bool) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == 'teacher';
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role;
+    }
+
+    match /notices/{noticeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidNotice(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidNotice(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidEvent(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidEvent(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /opinions/{opinionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidOpinion(request.resource.data) && uidUnchanged();
+      allow update: if isAuthenticated() && isValidOpinion(request.resource.data) && 
+                    (
+                      (isDocOwner() && uidNotModified()) ||
+                      (!isDocOwner() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']))
+                    );
+      allow delete: if isDocOwner();
+    }
+
+    match /reservations/{reservationId} {
+      allow read, write, delete: if true;
+    }
+
+    match /equipments/{equipmentId} {
+      allow read, write, delete: if true;
+    }
+
+    match /sheet_cards/{cardId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidSheetCard(request.resource.data) && uidUnchanged();
+      allow update: if isAuthenticated() && isValidSheetCard(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+  }
+}

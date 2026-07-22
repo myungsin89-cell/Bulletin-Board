@@ -1,0 +1,98 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A teacher in the grade level.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["teacher", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "role", "createdAt"]
+    },
+    "Notice": {
+      "title": "Notice",
+      "description": "A notice or announcement for the grade.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "isImportant": { "type": "boolean" },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "authorId", "authorName", "isImportant", "createdAt"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "A calendar event for the grade.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "start": { "type": "string" },
+        "end": { "type": "string" },
+        "allDay": { "type": "boolean" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "start", "end", "allDay", "authorId", "authorName", "createdAt"]
+    },
+    "Opinion": {
+      "title": "Opinion",
+      "description": "A topic for gathering opinions or voting.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "votes": { "type": "object", "additionalProperties": { "type": "number" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "authorId", "authorName", "options", "votes", "createdAt"]
+    },
+    "Reservation": {
+      "title": "Reservation",
+      "description": "A reservation for equipment or space.",
+      "type": "object",
+      "properties": {
+        "equipmentId": { "type": "string" },
+        "equipmentName": { "type": "string" },
+        "date": { "type": "string" },
+        "period": { "type": "number" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["equipmentId", "equipmentName", "date", "period", "authorId", "authorName", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles."
+    },
+    "notices/{noticeId}": {
+      "schema": { "$ref": "#/entities/Notice" },
+      "description": "Stores grade-level notices."
+    },
+    "events/{eventId}": {
+      "schema": { "$ref": "#/entities/Event" },
+      "description": "Stores calendar events."
+    },
+    "opinions/{opinionId}": {
+      "schema": { "$ref": "#/entities/Opinion" },
+      "description": "Stores opinion gathering topics."
+    },
+    "reservations/{reservationId}": {
+      "schema": { "$ref": "#/entities/Reservation" },
+      "description": "Stores equipment reservations. Document ID should be equipmentId_date_period to prevent conflicts."
+    }
+  }
+}
