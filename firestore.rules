@@ -134,6 +134,10 @@ service cloud.firestore {
       allow read, write, delete: if true;
     }
 
+    match /settings/{docId} {
+      allow read, write: if true;
+    }
+
     match /sheet_cards/{cardId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidSheetCard(request.resource.data) && uidUnchanged();

@@ -1,6 +1,7 @@
-import React, { ReactNode, useState } from 'react';
+import React, { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { firebaseConfig } from '../firebase';
+import { db, firebaseConfig } from '../firebase';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { Calendar, MessageSquare, Bell, CalendarDays, LogOut, BookOpen, Shield, FolderDown, Settings, RotateCcw, FileSpreadsheet, Copy, Check, Key } from 'lucide-react';
 import { cn } from '../utils/cn';
@@ -43,6 +44,49 @@ export function Layout({ children }: { children: ReactNode }) {
   const [newAdminPass, setNewAdminPass] = useState('');
   const [newAdminPassConfirm, setNewAdminPassConfirm] = useState('');
 
+  const [subTitle, setSubTitle] = useState<string>(() => {
+    return localStorage.getItem('sb_sub_title') || '';
+  });
+  const [editSubTitle, setEditSubTitle] = useState('');
+
+  // Fetch Board Subtitle Settings from Firestore
+  useEffect(() => {
+    if (!db) return;
+    try {
+      const docRef = doc(db, 'settings', 'board_info');
+      const unsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.subTitle !== undefined) {
+            setSubTitle(data.subTitle);
+            setEditSubTitle(data.subTitle);
+            localStorage.setItem('sb_sub_title', data.subTitle);
+          }
+        }
+      }, (err) => {
+        console.warn('SubTitle fetch fallback:', err);
+      });
+      return unsubscribe;
+    } catch (e) {
+      console.warn(e);
+    }
+  }, []);
+
+  const handleSaveSubTitle = async () => {
+    const trimmed = editSubTitle.trim();
+    setSubTitle(trimmed);
+    localStorage.setItem('sb_sub_title', trimmed);
+    try {
+      if (db) {
+        await setDoc(doc(db, 'settings', 'board_info'), { subTitle: trimmed }, { merge: true });
+      }
+      setAlertMessage('학교/학년 소제목 타이틀이 저장되었습니다!');
+    } catch (e) {
+      console.warn('Save subTitle fallback error:', e);
+      setAlertMessage('로컬 저장 완료!');
+    }
+  };
+
   const handleAdminClick = () => {
     if (profile?.role === 'admin') {
       setAlertMessage('이미 관리자 모드입니다.');
@@ -69,11 +113,18 @@ export function Layout({ children }: { children: ReactNode }) {
       <header className="bg-white sticky top-0 z-40 border-b border-[#f2f4f6]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#10b981] rounded-xl flex items-center justify-center">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-[#10b981] rounded-xl flex items-center justify-center shrink-0">
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-[#191f28] tracking-tight">동학년 게시판</h1>
+              <div className="flex flex-col leading-tight justify-center">
+                <h1 className="text-[17px] sm:text-xl font-bold text-[#191f28] tracking-tight">동학년 게시판</h1>
+                {subTitle && (
+                  <span className="text-[11.5px] font-bold text-[#10b981] tracking-tight truncate max-w-[180px] sm:max-w-[240px]">
+                    {subTitle}
+                  </span>
+                )}
+              </div>
             </div>
             
             <div className="flex items-center gap-4">
@@ -251,6 +302,32 @@ export function Layout({ children }: { children: ReactNode }) {
             <p className="text-[14px] text-[#4e5968] mb-4 leading-relaxed">
               현재 저장된 Firebase 데이터베이스 연결 설정을 확인하거나 초기화할 수 있습니다.
             </p>
+
+            {/* School / Grade Subtitle Setting Section */}
+            <div className="mb-4 p-3.5 bg-[#f8fafc] rounded-2xl border border-[#e2e8f0]">
+              <span className="text-[12.5px] font-bold text-[#4e5968] block mb-2 flex items-center gap-1">
+                <BookOpen className="w-3.5 h-3.5 text-[#10b981]" /> 학교 / 학년 타이틀 설정
+              </span>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={editSubTitle}
+                  onChange={(e) => setEditSubTitle(e.target.value)}
+                  placeholder="예: 이음초등학교 4학년"
+                  className="flex-1 px-3 py-2 bg-white border border-[#e2e8f0] focus:border-[#10b981] rounded-xl text-[12.5px] outline-none font-bold text-[#191f28]"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveSubTitle}
+                  className="px-3.5 py-2 bg-[#10b981] hover:bg-[#059669] text-white font-bold rounded-xl text-[12.5px] transition-colors shadow-2xs shrink-0"
+                >
+                  저장
+                </button>
+              </div>
+              <span className="text-[11px] text-[#8b95a1] mt-1 block">
+                저장하면 메인 상단 '동학년 게시판' 아래에 소제목으로 즉시 표시됩니다.
+              </span>
+            </div>
 
             {/* Current School Code Box */}
             {getSchoolCode() && (
