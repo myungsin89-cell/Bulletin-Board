@@ -82,6 +82,7 @@ function handleSquirrelEvent() {
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
+    title: '동학년 게시판',
     width: 1280,
     height: 850,
     minWidth: 1024,

@@ -1,8 +1,20 @@
 import React, { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { firebaseConfig } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Calendar, MessageSquare, Bell, CalendarDays, LogOut, BookOpen, Shield, FolderDown, Settings, RotateCcw, FileSpreadsheet } from 'lucide-react';
+import { Calendar, MessageSquare, Bell, CalendarDays, LogOut, BookOpen, Shield, FolderDown, Settings, RotateCcw, FileSpreadsheet, Copy, Check } from 'lucide-react';
 import { cn } from '../utils/cn';
+
+const getSchoolCode = () => {
+  if (!firebaseConfig) return '';
+  try {
+    const jsonStr = JSON.stringify(firebaseConfig);
+    const base64Str = btoa(unescape(encodeURIComponent(jsonStr)));
+    return `SBC-${base64Str}`;
+  } catch (e) {
+    return '';
+  }
+};
 
 const navItems = [
   { name: '대시보드', href: '/', icon: Bell },
@@ -20,6 +32,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
+
+  const [isCodeCopied, setIsCodeCopied] = useState(false);
 
   const handleAdminClick = () => {
     if (profile?.role === 'admin') {
@@ -226,9 +240,33 @@ export function Layout({ children }: { children: ReactNode }) {
               <Settings className="w-5 h-5 text-[#10b981]" />
               시스템 설정
             </h3>
-            <p className="text-[14px] text-[#4e5968] mb-6 leading-relaxed">
-              현재 저장된 Firebase 데이터베이스 연결 설정을 초기화하고, 다른 학교/프로젝트를 연동할 수 있는 <b>설정 마법사 화면</b>으로 이동합니다.
+            <p className="text-[14px] text-[#4e5968] mb-4 leading-relaxed">
+              현재 저장된 Firebase 데이터베이스 연결 설정을 확인하거나 초기화할 수 있습니다.
             </p>
+
+            {/* Current School Code Box */}
+            {getSchoolCode() && (
+              <div className="mb-5 p-3.5 bg-[#f8fafc] rounded-2xl border border-[#e2e8f0]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[12.5px] font-bold text-[#4e5968]">🏫 현재 학교 연동 코드</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(getSchoolCode());
+                      setIsCodeCopied(true);
+                      setTimeout(() => setIsCodeCopied(false), 2000);
+                    }}
+                    className="px-2.5 py-1 bg-[#10b981] hover:bg-[#059669] text-white font-bold rounded-lg text-[11.5px] transition-colors flex items-center gap-1 shadow-2xs"
+                  >
+                    {isCodeCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {isCodeCopied ? '복사됨!' : '코드 복사'}
+                  </button>
+                </div>
+                <div className="text-[11.5px] font-mono text-[#64748b] bg-white p-2 rounded-xl border border-[#e2e8f0] break-all select-all max-h-20 overflow-y-auto leading-relaxed">
+                  {getSchoolCode()}
+                </div>
+              </div>
+            )}
             <div className="flex gap-2">
               <button
                 type="button"
