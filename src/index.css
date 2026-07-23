@@ -5,6 +5,10 @@
   --font-sans: "Pretendard", ui-sans-serif, system-ui, sans-serif;
 }
 
+html {
+  background-color: #ffffff;
+}
+
 body {
   font-family: "Pretendard", ui-sans-serif, system-ui, sans-serif;
   background-color: #f2f4f6; /* Toss light gray background */

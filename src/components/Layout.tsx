@@ -1,4 +1,5 @@
 import React, { ReactNode, useState, useEffect } from 'react';
+import appLogo from '../assets/icon.png';
 import { Link, useLocation } from 'react-router-dom';
 import { db, firebaseConfig } from '../firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
@@ -114,8 +115,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-[#10b981] rounded-xl flex items-center justify-center shrink-0">
-                <BookOpen className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
+                <img src={appLogo} alt="동학년 게시판" className="w-7.5 h-7.5 object-contain" />
               </div>
               <div className="flex flex-col leading-tight justify-center">
                 <h1 className="text-[17px] sm:text-xl font-bold text-[#191f28] tracking-tight">동학년 게시판</h1>
@@ -146,31 +147,22 @@ export function Layout({ children }: { children: ReactNode }) {
                     </Link>
                   );
                 })}
-                <button
-                  onClick={handleAdminClick}
-                  className={cn(
-                    "px-4 py-2 rounded-xl text-[15px] font-semibold transition-all flex items-center gap-1",
-                    profile?.role === 'admin'
-                      ? "text-[#10b981] bg-[#ecfdf5]"
-                      : "text-[#4e5968] hover:bg-[#f2f4f6] hover:text-[#191f28]"
-                  )}
-                >
-                  <Shield className="w-4 h-4" />
-                  관리자
-                </button>
               </div>
               
               <div className="flex items-center gap-2 pl-4 border-l border-[#f2f4f6]">
                 <div className="flex flex-col items-end hidden sm:flex mr-2">
-                  <span className="text-[14px] font-bold text-[#191f28]">{profile?.displayName}</span>
-                  <span className="text-[12px] text-[#8b95a1]">
+                  <span className="text-[14px] font-bold text-[#191f28] flex items-center gap-1">
+                    {profile?.role === 'admin' && <span className="text-[12px]">👑</span>}
+                    {profile?.displayName}
+                  </span>
+                  <span className={cn("text-[11.5px] font-bold", profile?.role === 'admin' ? "text-[#10b981]" : "text-[#8b95a1]")}>
                     {profile?.role === 'admin' ? '관리자' : '선생님'}
                   </span>
                 </div>
                 <button 
                   onClick={() => setIsSettingsOpen(true)}
                   className="p-2 text-[#8b95a1] hover:text-[#191f28] hover:bg-[#f2f4f6] rounded-xl transition-colors animate-fade-in"
-                  title="데이터베이스 설정"
+                  title="시스템 설정 및 관리자 로그인"
                 >
                   <Settings className="w-5 h-5" />
                 </button>
@@ -209,18 +201,6 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
-          <button
-            onClick={handleAdminClick}
-            className={cn(
-              "flex flex-col items-center justify-center w-full h-full gap-0.5",
-              profile?.role === 'admin' ? "text-[#10b981]" : "text-[#8b95a1]"
-            )}
-          >
-            <Shield className={cn("w-5.5 h-5.5", profile?.role === 'admin' ? "text-[#10b981]" : "text-[#b0b8c1]")} />
-            <span className={cn("text-[9px] font-semibold", profile?.role === 'admin' ? "text-[#10b981]" : "text-[#8b95a1]")}>
-              관리자
-            </span>
-          </button>
           <button
             onClick={() => setIsSettingsOpen(true)}
             className="flex flex-col items-center justify-center w-full h-full gap-0.5 text-[#8b95a1]"
@@ -302,6 +282,50 @@ export function Layout({ children }: { children: ReactNode }) {
             <p className="text-[14px] text-[#4e5968] mb-4 leading-relaxed">
               현재 저장된 Firebase 데이터베이스 연결 설정을 확인하거나 초기화할 수 있습니다.
             </p>
+
+            {/* Admin Authentication & Switch Section */}
+            <div className="mb-4 p-3.5 bg-[#f8fafc] rounded-2xl border border-[#e2e8f0]">
+              <span className="text-[12.5px] font-bold text-[#4e5968] block mb-2 flex items-center gap-1">
+                <Shield className="w-3.5 h-3.5 text-[#10b981]" /> 관리자 모드 전환 및 인증
+              </span>
+              {profile?.role === 'admin' ? (
+                <div className="flex items-center justify-between bg-[#ecfdf5] p-2.5 rounded-xl border border-[#a7f3d0]">
+                  <span className="text-[12.5px] font-bold text-[#047857] flex items-center gap-1">
+                    👑 현재 관리자 모드 활성화됨
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (profile) {
+                        const updated = { ...profile, role: 'teacher' as const };
+                        localStorage.setItem('teacher_profile', JSON.stringify(updated));
+                        window.location.reload();
+                      }
+                    }}
+                    className="px-2.5 py-1 bg-white border border-[#047857]/20 text-[#047857] hover:bg-[#d1fae5] font-bold rounded-lg text-[11.5px] transition-colors"
+                  >
+                    선생님 모드로 전환
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleAdminSubmit} className="flex gap-2">
+                  <input
+                    type="password"
+                    maxLength={4}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="비밀번호 4자리 (기본: 0000)"
+                    className="flex-1 px-3 py-2 bg-white border border-[#e2e8f0] focus:border-[#10b981] rounded-xl text-[12.5px] outline-none text-center font-mono font-bold"
+                  />
+                  <button
+                    type="submit"
+                    className="px-3.5 py-2 bg-[#10b981] hover:bg-[#059669] text-white font-bold rounded-xl text-[12.5px] transition-colors shadow-2xs shrink-0"
+                  >
+                    관리자 로그인
+                  </button>
+                </form>
+              )}
+            </div>
 
             {/* School / Grade Subtitle Setting Section */}
             <div className="mb-4 p-3.5 bg-[#f8fafc] rounded-2xl border border-[#e2e8f0]">

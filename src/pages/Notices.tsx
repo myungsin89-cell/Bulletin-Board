@@ -240,100 +240,132 @@ export function Notices() {
               </span>
             </h2>
             <button
-              onClick={() => setIsComposing(!isComposing)}
-              className={cn(
-                "flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-[14px] transition-all active:scale-95 shadow-sm",
-                isComposing 
-                  ? "bg-[#f2f4f6] text-[#4e5968] hover:bg-[#e5e8eb]" 
-                  : "bg-[#10b981] text-white hover:bg-[#059669]"
-              )}
+              onClick={() => setIsComposing(true)}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-[#10b981] text-white hover:bg-[#059669] rounded-xl font-bold text-[14px] transition-all active:scale-95 shadow-sm"
             >
-              <Plus className={cn("w-4.5 h-4.5", isComposing && "rotate-45 transition-transform")} />
-              <span>{isComposing ? '작성 취소' : '새 공지 작성'}</span>
+              <Plus className="w-4.5 h-4.5" />
+              <span>새 공지 작성</span>
             </button>
           </div>
 
-          {/* Compose Form */}
+          {/* Modal for Composing Notice */}
           {isComposing && (
-            <form onSubmit={handleSubmit} className="bg-white p-6 rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.02)] border border-[#f2f4f6] space-y-4">
-              <input
-                type="text"
-                placeholder="제목을 입력하세요"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full text-[17px] font-bold px-4 py-3.5 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors placeholder-[#b0b8c1] text-[#191f28]"
-                required
-              />
-              <textarea
-                placeholder="내용을 입력하세요"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="w-full h-40 px-4 py-3.5 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors resize-none placeholder-[#b0b8c1] text-[#191f28] text-[15.5px] leading-relaxed"
-                required
-              />
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
-                <div className="flex-1 flex items-center gap-2 bg-[#f2f4f6] rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-[#10b981] transition-colors">
-                  <ImageIcon className="w-5 h-5 text-[#8b95a1]" />
-                  <input
-                    type="url"
-                    placeholder="이미지 URL (선택사항)"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    className="w-full bg-transparent border-none focus:outline-none text-[14px] text-[#191f28] placeholder-[#b0b8c1]"
-                  />
-                </div>
-              </div>
-
-              {/* Date Period Options (Scheduled posting & Expiration date) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#f8fafc] p-3.5 rounded-2xl border border-[#e2e8f0]">
-                <div>
-                  <label className="block text-[12px] font-bold text-[#4e5968] mb-1 flex items-center gap-1">
-                    <CalendarIcon className="w-3.5 h-3.5 text-[#10b981]" />
-                    게시 시작일 (예약 게시)
-                  </label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-[#cbd5e1] focus:border-[#10b981] rounded-xl text-[12.5px] outline-none font-semibold text-[#191f28]"
-                  />
-                  <span className="text-[11px] text-[#8b95a1] mt-0.5 block">비워두면 작성 즉시 게시됩니다.</span>
-                </div>
-                <div>
-                  <label className="block text-[12px] font-bold text-[#4e5968] mb-1 flex items-center gap-1">
-                    <CalendarIcon className="w-3.5 h-3.5 text-[#f04452]" />
-                    게시 종료일 (자동 마감/삭제)
-                  </label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    min={startDate || undefined}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-[#cbd5e1] focus:border-[#f04452] rounded-xl text-[12.5px] outline-none font-semibold text-[#191f28]"
-                  />
-                  <span className="text-[11px] text-[#8b95a1] mt-0.5 block">해당 날짜가 지나면 자동으로 숨겨집니다.</span>
-                </div>
-              </div>
-
-              <div className="flex justify-end items-center gap-2 pt-1">
-                  <label className="flex-1 sm:flex-none flex items-center justify-center gap-2 cursor-pointer text-[14px] font-bold text-[#4e5968] bg-[#f2f4f6] px-4 py-3 rounded-xl hover:bg-[#e5e8eb] transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={isImportant}
-                      onChange={(e) => setIsImportant(e.target.checked)}
-                      className="w-4 h-4 text-[#f04452] rounded border-[#d1d6db]"
-                    />
-                    <Pin className="w-4 h-4 text-[#f04452]" />
-                    필독
-                  </label>
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4 animate-fade-in">
+              <div className="bg-white rounded-[28px] p-6 sm:p-7 w-full max-w-xl shadow-2xl border border-white max-h-[90vh] overflow-y-auto space-y-4">
+                <div className="flex items-center justify-between border-b border-[#f2f4f6] pb-3.5">
+                  <h3 className="text-lg font-bold text-[#191f28] flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-[#10b981]" />
+                    새 공지사항 작성
+                  </h3>
                   <button
-                    type="submit"
-                    className="flex-1 sm:flex-none bg-[#191f28] text-white px-7 py-3 rounded-xl font-bold hover:bg-[#333d4b] active:scale-95 transition-all text-[14px]"
+                    type="button"
+                    onClick={() => setIsComposing(false)}
+                    className="p-1.5 text-[#8b95a1] hover:text-[#191f28] hover:bg-[#f2f4f6] rounded-xl transition-colors"
                   >
-                    공지 등록
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
-            </form>
+
+                <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+                  <div>
+                    <label className="block text-[13px] font-bold text-[#4e5968] mb-1.5">제목</label>
+                    <input
+                      type="text"
+                      placeholder="공지사항 제목을 입력하세요"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      className="w-full text-[15.5px] font-bold px-4 py-3 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors placeholder-[#b0b8c1] text-[#191f28]"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[13px] font-bold text-[#4e5968] mb-1.5">내용</label>
+                    <textarea
+                      placeholder="공지할 상세 내용을 입력하세요"
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      className="w-full h-36 px-4 py-3 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors resize-none placeholder-[#b0b8c1] text-[#191f28] text-[14.5px] leading-relaxed"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[13px] font-bold text-[#4e5968] mb-1.5">이미지 첨부 (선택)</label>
+                    <div className="flex items-center gap-2 bg-[#f2f4f6] rounded-xl px-4 py-2.5 focus-within:ring-2 focus-within:ring-[#10b981] transition-colors">
+                      <ImageIcon className="w-5 h-5 text-[#8b95a1]" />
+                      <input
+                        type="url"
+                        placeholder="이미지 URL 주소"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        className="w-full bg-transparent border-none focus:outline-none text-[13.5px] text-[#191f28] placeholder-[#b0b8c1]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Date Period Options (Scheduled posting & Expiration date) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#f8fafc] p-3.5 rounded-2xl border border-[#e2e8f0]">
+                    <div>
+                      <label className="block text-[12px] font-bold text-[#4e5968] mb-1 flex items-center gap-1">
+                        <CalendarIcon className="w-3.5 h-3.5 text-[#10b981]" />
+                        게시 시작일 (예약 게시)
+                      </label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-[#cbd5e1] focus:border-[#10b981] rounded-xl text-[12.5px] outline-none font-semibold text-[#191f28]"
+                      />
+                      <span className="text-[11px] text-[#8b95a1] mt-0.5 block">비워두면 즉시 게시됩니다.</span>
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-bold text-[#4e5968] mb-1 flex items-center gap-1">
+                        <CalendarIcon className="w-3.5 h-3.5 text-[#f04452]" />
+                        게시 종료일 (자동 마감/숨김)
+                      </label>
+                      <input
+                        type="date"
+                        value={endDate}
+                        min={startDate || undefined}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-[#cbd5e1] focus:border-[#f04452] rounded-xl text-[12.5px] outline-none font-semibold text-[#191f28]"
+                      />
+                      <span className="text-[11px] text-[#8b95a1] mt-0.5 block">날짜 지나면 자동 숨김</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-[#f2f4f6]">
+                    <label className="flex items-center gap-2 cursor-pointer text-[14px] font-bold text-[#4e5968] bg-[#f2f4f6] px-4 py-2.5 rounded-xl hover:bg-[#e5e8eb] transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={isImportant}
+                        onChange={(e) => setIsImportant(e.target.checked)}
+                        className="w-4 h-4 text-[#f04452] rounded border-[#d1d6db]"
+                      />
+                      <Pin className="w-4 h-4 text-[#f04452]" />
+                      필독 공지
+                    </label>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsComposing(false)}
+                        className="px-5 py-2.5 bg-[#f2f4f6] text-[#4e5968] font-bold rounded-xl hover:bg-[#e5e8eb] transition-colors text-[14px]"
+                      >
+                        취소
+                      </button>
+                      <button
+                        type="submit"
+                        className="bg-[#10b981] hover:bg-[#059669] text-white px-6 py-2.5 rounded-xl font-bold active:scale-95 transition-all text-[14px] shadow-sm"
+                      >
+                        공지 등록
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
           )}
 
           {/* Notices List */}

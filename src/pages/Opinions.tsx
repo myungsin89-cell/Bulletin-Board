@@ -304,215 +304,230 @@ export function Opinions() {
           </span>
         </h2>
         <button
-          onClick={() => setIsComposing(!isComposing)}
-          className={cn(
-            "flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-[14px] transition-all active:scale-95 shadow-sm",
-            isComposing 
-              ? "bg-[#f2f4f6] text-[#4e5968] hover:bg-[#e5e8eb]" 
-              : "bg-[#10b981] text-white hover:bg-[#059669]"
-          )}
+          onClick={() => setIsComposing(true)}
+          className="flex items-center gap-1.5 px-4 py-2.5 bg-[#10b981] text-white hover:bg-[#059669] rounded-xl font-bold text-[14px] transition-all active:scale-95 shadow-sm"
         >
-          <Plus className={cn("w-4.5 h-4.5", isComposing && "rotate-45 transition-transform")} />
-          <span>{isComposing ? '작성 취소' : '새 안건/투표 개설'}</span>
+          <Plus className="w-4.5 h-4.5" />
+          <span>새 안건/투표 개설</span>
         </button>
       </div>
 
-      {/* Compose Form */}
+      {/* Compose Form Modal */}
       {isComposing && (
-        <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-7 rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-[#f2f4f6] space-y-5">
-          <h3 className="text-[17px] font-bold text-[#191f28] flex items-center gap-2 pb-2 border-b border-[#f8faf9]">
-            <Sparkles className="w-5 h-5 text-[#10b981]" />
-            새 안건 및 대상자 선정 투표 개설
-          </h3>
-
-          <div>
-            <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">투표/안건 제목</label>
-            <input
-              type="text"
-              placeholder="예: 2학기 동학년 대표 교사 추천 또는 현장학습 장소 선정"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full text-[16px] font-bold px-4 py-3.5 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors placeholder-[#b0b8c1] text-[#191f28]"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">상세 설명 (선택사항)</label>
-            <textarea
-              placeholder="안건에 대한 추가 설명이나 일정을 자유롭게 입력하세요"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full h-20 px-4 py-3 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors resize-none placeholder-[#b0b8c1] text-[#191f28] text-[14.5px] leading-relaxed"
-            />
-          </div>
-
-          {/* Type & Confidentiality Options */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-            <div className="bg-[#f8fafc] p-4 rounded-2xl border border-[#e2e8f0] space-y-2">
-              <label className="block text-[13.5px] font-bold text-[#191f28]">📌 투표 목적 구분</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setVoteType('general')}
-                  className={cn(
-                    "py-2.5 px-3 rounded-xl font-bold text-[13px] border transition-all flex items-center justify-center gap-1.5",
-                    voteType === 'general'
-                      ? "bg-[#10b981] text-white border-[#10b981] shadow-xs"
-                      : "bg-white text-[#4e5968] border-[#d1d6db] hover:bg-[#f2f4f6]"
-                  )}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  일반 안건 투표
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setVoteType('candidate')}
-                  className={cn(
-                    "py-2.5 px-3 rounded-xl font-bold text-[13px] border transition-all flex items-center justify-center gap-1.5",
-                    voteType === 'candidate'
-                      ? "bg-[#10b981] text-white border-[#10b981] shadow-xs"
-                      : "bg-white text-[#4e5968] border-[#d1d6db] hover:bg-[#f2f4f6]"
-                  )}
-                >
-                  <UserCheck className="w-4 h-4" />
-                  대상자(선생님) 선정
-                </button>
-              </div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4 animate-fade-in">
+          <div className="bg-white rounded-[28px] p-6 sm:p-7 w-full max-w-2xl shadow-2xl border border-white max-h-[90vh] overflow-y-auto space-y-5">
+            <div className="flex items-center justify-between border-b border-[#f2f4f6] pb-3.5">
+              <h3 className="text-lg font-bold text-[#191f28] flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#10b981]" />
+                새 안건 및 투표 개설
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsComposing(false)}
+                className="p-1.5 text-[#8b95a1] hover:text-[#191f28] hover:bg-[#f2f4f6] rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <div className="bg-[#f8fafc] p-4 rounded-2xl border border-[#e2e8f0] space-y-2">
-              <label className="block text-[13.5px] font-bold text-[#191f28]">🔒 공개 / 익명 투표 설정</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAnonymous(false)}
-                  className={cn(
-                    "py-2.5 px-3 rounded-xl font-bold text-[13px] border transition-all flex items-center justify-center gap-1.5",
-                    !isAnonymous
-                      ? "bg-[#3b82f6] text-white border-[#3b82f6] shadow-xs"
-                      : "bg-white text-[#4e5968] border-[#d1d6db] hover:bg-[#f2f4f6]"
-                  )}
-                >
-                  <Eye className="w-4 h-4" />
-                  공개 투표
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAnonymous(true)}
-                  className={cn(
-                    "py-2.5 px-3 rounded-xl font-bold text-[13px] border transition-all flex items-center justify-center gap-1.5",
-                    isAnonymous
-                      ? "bg-[#8b5cf6] text-white border-[#8b5cf6] shadow-xs"
-                      : "bg-white text-[#4e5968] border-[#d1d6db] hover:bg-[#f2f4f6]"
-                  )}
-                >
-                  <Lock className="w-4 h-4" />
-                  비공개 (익명)
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {voteType === 'candidate' ? (
-            <div className="space-y-3 pt-2">
-              <div className="flex justify-between items-center">
-                <label className="block text-[14px] font-bold text-[#191f28] flex items-center gap-1.5">
-                  <UserCheck className="w-4.5 h-4.5 text-[#10b981]" />
-                  투표 대상자(선생님) 카드를 선택하세요
-                  <span className="text-[12px] bg-[#ecfdf5] text-[#10b981] px-2 py-0.5 rounded-full font-bold ml-1">
-                    {selectedCandidateNames.length}명 선택됨
-                  </span>
-                </label>
-
-                <button
-                  type="button"
-                  onClick={handleSelectAllTeachers}
-                  className="text-[12.5px] font-bold text-[#10b981] hover:underline flex items-center gap-1"
-                >
-                  {selectedCandidateNames.length === displayTeacherNames.length ? '전체 해제' : '전체 선택'}
-                </button>
+            <form onSubmit={handleSubmit} className="space-y-5 pt-1">
+              <div>
+                <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">투표/안건 제목</label>
+                <input
+                  type="text"
+                  placeholder="예: 2학기 동학년 대표 교사 추천 또는 현장학습 장소 선정"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full text-[16px] font-bold px-4 py-3.5 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors placeholder-[#b0b8c1] text-[#191f28]"
+                  required
+                />
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                {displayTeacherNames.map((name, idx) => {
-                  const isSelected = selectedCandidateNames.includes(name);
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => toggleTeacherCandidate(name)}
+              <div>
+                <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">상세 설명 (선택사항)</label>
+                <textarea
+                  placeholder="안건에 대한 추가 설명이나 일정을 자유롭게 입력하세요"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full h-20 px-4 py-3 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors resize-none placeholder-[#b0b8c1] text-[#191f28] text-[14.5px] leading-relaxed"
+                />
+              </div>
+
+              {/* Type & Confidentiality Options */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div className="bg-[#f8fafc] p-4 rounded-2xl border border-[#e2e8f0] space-y-2">
+                  <label className="block text-[13.5px] font-bold text-[#191f28]">📌 투표 목적 구분</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setVoteType('general')}
                       className={cn(
-                        "p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between select-none",
-                        isSelected
-                          ? "bg-[#ecfdf5] border-[#10b981] text-[#047857] shadow-xs"
-                          : "bg-[#f8fafc] border-[#e2e8f0] text-[#4e5968] hover:bg-[#f1f5f9]"
+                        "py-2.5 px-3 rounded-xl font-bold text-[13px] border transition-all flex items-center justify-center gap-1.5",
+                        voteType === 'general'
+                          ? "bg-[#10b981] text-white border-[#10b981] shadow-xs"
+                          : "bg-white text-[#4e5968] border-[#d1d6db] hover:bg-[#f2f4f6]"
                       )}
                     >
-                      <span className="font-bold text-[13.5px] truncate">{name}</span>
-                      <div className={cn(
-                        "w-5 h-5 rounded-full flex items-center justify-center transition-colors shrink-0",
-                        isSelected ? "bg-[#10b981] text-white" : "bg-[#e2e8f0] text-transparent"
-                      )}>
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3 pt-2">
-              <label className="block text-[14px] font-bold text-[#191f28]">
-                📋 투표 항목 선택지
-              </label>
-
-              <div className="space-y-2">
-                {generalOptions.map((opt, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="w-7 text-[13px] font-bold text-[#8b95a1] text-center">{idx + 1}.</span>
-                    <input
-                      type="text"
-                      placeholder={`항목 ${idx + 1}`}
-                      value={opt}
-                      onChange={(e) => handleGeneralOptionChange(idx, e.target.value)}
-                      className="flex-1 px-4 py-2.5 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors text-[14.5px] text-[#191f28]"
-                      required={idx < 2}
-                    />
-                    {generalOptions.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveGeneralOption(idx)}
-                        className="p-2 text-[#8b95a1] hover:text-[#f04452] hover:bg-[#fff5f5] rounded-lg transition-colors"
-                        title="항목 삭제"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                      <MessageSquare className="w-4 h-4" />
+                      일반 안건 투표
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVoteType('candidate')}
+                      className={cn(
+                        "py-2.5 px-3 rounded-xl font-bold text-[13px] border transition-all flex items-center justify-center gap-1.5",
+                        voteType === 'candidate'
+                          ? "bg-[#10b981] text-white border-[#10b981] shadow-xs"
+                          : "bg-white text-[#4e5968] border-[#d1d6db] hover:bg-[#f2f4f6]"
+                      )}
+                    >
+                      <UserCheck className="w-4 h-4" />
+                      대상자(선생님) 선정
+                    </button>
                   </div>
-                ))}
+                </div>
+
+                <div className="bg-[#f8fafc] p-4 rounded-2xl border border-[#e2e8f0] space-y-2">
+                  <label className="block text-[13.5px] font-bold text-[#191f28]">🔒 공개 / 익명 투표 설정</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAnonymous(false)}
+                      className={cn(
+                        "py-2.5 px-3 rounded-xl font-bold text-[13px] border transition-all flex items-center justify-center gap-1.5",
+                        !isAnonymous
+                          ? "bg-[#3b82f6] text-white border-[#3b82f6] shadow-xs"
+                          : "bg-white text-[#4e5968] border-[#d1d6db] hover:bg-[#f2f4f6]"
+                      )}
+                    >
+                      <Eye className="w-4 h-4" />
+                      공개 투표
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAnonymous(true)}
+                      className={cn(
+                        "py-2.5 px-3 rounded-xl font-bold text-[13px] border transition-all flex items-center justify-center gap-1.5",
+                        isAnonymous
+                          ? "bg-[#8b5cf6] text-white border-[#8b5cf6] shadow-xs"
+                          : "bg-white text-[#4e5968] border-[#d1d6db] hover:bg-[#f2f4f6]"
+                      )}
+                    >
+                      <Lock className="w-4 h-4" />
+                      비공개 (익명)
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {generalOptions.length < 20 && (
+              {voteType === 'candidate' ? (
+                <div className="space-y-3 pt-2">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-[14px] font-bold text-[#191f28] flex items-center gap-1.5">
+                      <UserCheck className="w-4.5 h-4.5 text-[#10b981]" />
+                      투표 대상자(선생님) 카드를 선택하세요
+                      <span className="text-[12px] bg-[#ecfdf5] text-[#10b981] px-2 py-0.5 rounded-full font-bold ml-1">
+                        {selectedCandidateNames.length}명 선택됨
+                      </span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={handleSelectAllTeachers}
+                      className="text-[12.5px] font-bold text-[#10b981] hover:underline flex items-center gap-1"
+                    >
+                      {selectedCandidateNames.length === displayTeacherNames.length ? '전체 해제' : '전체 선택'}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto p-1">
+                    {displayTeacherNames.map((name, idx) => {
+                      const isSelected = selectedCandidateNames.includes(name);
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => toggleTeacherCandidate(name)}
+                          className={cn(
+                            "p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between select-none",
+                            isSelected
+                              ? "bg-[#ecfdf5] border-[#10b981] text-[#047857] shadow-xs"
+                              : "bg-[#f8fafc] border-[#e2e8f0] text-[#4e5968] hover:bg-[#f1f5f9]"
+                          )}
+                        >
+                          <span className="font-bold text-[13.5px] truncate">{name}</span>
+                          <div className={cn(
+                            "w-5 h-5 rounded-full flex items-center justify-center transition-colors shrink-0",
+                            isSelected ? "bg-[#10b981] text-white" : "bg-[#e2e8f0] text-transparent"
+                          )}>
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 pt-2">
+                  <label className="block text-[14px] font-bold text-[#191f28]">
+                    📋 투표 항목 선택지
+                  </label>
+
+                  <div className="space-y-2">
+                    {generalOptions.map((opt, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="w-7 text-[13px] font-bold text-[#8b95a1] text-center">{idx + 1}.</span>
+                        <input
+                          type="text"
+                          placeholder={`항목 ${idx + 1}`}
+                          value={opt}
+                          onChange={(e) => handleGeneralOptionChange(idx, e.target.value)}
+                          className="flex-1 px-4 py-2.5 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors text-[14.5px] text-[#191f28]"
+                          required={idx < 2}
+                        />
+                        {generalOptions.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGeneralOption(idx)}
+                            className="p-2 text-[#8b95a1] hover:text-[#f04452] hover:bg-[#fff5f5] rounded-lg transition-colors"
+                            title="항목 삭제"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {generalOptions.length < 20 && (
+                    <button
+                      type="button"
+                      onClick={handleAddGeneralOption}
+                      className="text-[13.5px] font-bold text-[#10b981] hover:text-[#059669] px-2 py-1.5 transition-colors flex items-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" /> 항목 추가하기
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#f2f4f6]">
                 <button
                   type="button"
-                  onClick={handleAddGeneralOption}
-                  className="text-[13.5px] font-bold text-[#10b981] hover:text-[#059669] px-2 py-1.5 transition-colors flex items-center gap-1"
+                  onClick={() => setIsComposing(false)}
+                  className="px-5 py-2.5 bg-[#f2f4f6] text-[#4e5968] font-bold rounded-xl hover:bg-[#e5e8eb] transition-colors text-[14px]"
                 >
-                  <Plus className="w-4 h-4" /> 항목 추가하기
+                  취소
                 </button>
-              )}
-            </div>
-          )}
-
-          <div className="flex justify-end pt-3 border-t border-[#f8faf9]">
-            <button
-              type="submit"
-              className="bg-[#191f28] text-white px-7 py-3 rounded-xl font-bold hover:bg-[#333d4b] active:scale-95 transition-all text-[14px]"
-            >
-              투표 개설하기
-            </button>
+                <button
+                  type="submit"
+                  className="bg-[#10b981] text-white px-7 py-2.5 rounded-xl font-bold hover:bg-[#059669] active:scale-95 transition-all text-[14px] shadow-sm"
+                >
+                  투표 개설 완료
+                </button>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       )}
 
       {/* Opinions Grid List */}

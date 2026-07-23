@@ -477,16 +477,11 @@ export function SheetsRepository() {
           </button>
           
           <button
-            onClick={() => setIsComposing(!isComposing)}
-            className={cn(
-              "flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-[14px] transition-all active:scale-95 shadow-sm",
-              isComposing 
-                ? "bg-[#f2f4f6] text-[#4e5968] hover:bg-[#e5e8eb]" 
-                : "bg-[#10b981] text-white hover:bg-[#059669]"
-            )}
+            onClick={() => setIsComposing(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-[#10b981] text-white hover:bg-[#059669] rounded-xl font-bold text-[14px] transition-all active:scale-95 shadow-sm"
           >
-            <Plus className={cn("w-4.5 h-4.5", isComposing && "rotate-45 transition-transform")} />
-            <span>{isComposing ? '작성 취소' : '새 정보 카드 만들기'}</span>
+            <Plus className="w-4.5 h-4.5" />
+            <span>새 정보 카드 만들기</span>
           </button>
         </div>
       </div>
@@ -531,124 +526,144 @@ export function SheetsRepository() {
         </div>
       </div>
 
-      {/* CREATE CARD FORM */}
+      {/* CREATE CARD FORM MODAL */}
       {isComposing && (
-        <form onSubmit={handleCreateCard} className="bg-white p-6 sm:p-7 rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-[#f2f4f6] space-y-4 animate-fade-in">
-          <h3 className="text-[17px] font-bold text-[#191f28] flex items-center gap-2 pb-2 border-b border-[#f8faf9]">
-            <Sparkles className="w-5 h-5 text-[#10b981]" />
-            새 공유 정보 카드 개설
-          </h3>
-
-          {/* Card Type Selector */}
-          <div className="flex items-center gap-2 p-1.5 bg-[#f2f4f6] rounded-2xl">
-            <button
-              type="button"
-              onClick={() => setNewType('memo')}
-              className={cn(
-                "flex-1 py-2.5 px-4 rounded-xl font-bold text-[13.5px] transition-all flex items-center justify-center gap-2",
-                newType === 'memo'
-                  ? "bg-white text-[#3b82f6] shadow-xs"
-                  : "text-[#64748b] hover:text-[#191f28]"
-              )}
-            >
-              <Sparkles className="w-4 h-4 text-[#3b82f6]" />
-              📝 앱내 스마트 메모 (앱 안에서 읽기/수정)
-            </button>
-            <button
-              type="button"
-              onClick={() => setNewType('sheet')}
-              className={cn(
-                "flex-1 py-2.5 px-4 rounded-xl font-bold text-[13.5px] transition-all flex items-center justify-center gap-2",
-                newType === 'sheet'
-                  ? "bg-white text-[#10b981] shadow-xs"
-                  : "text-[#64748b] hover:text-[#191f28]"
-              )}
-            >
-              <FileSpreadsheet className="w-4 h-4 text-[#10b981]" />
-              📊 구글 시트 연동 (구글 탭 자동 생성)
-            </button>
-          </div>
-
-          <div>
-            <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">카드 제목</label>
-            <input
-              type="text"
-              placeholder={newType === 'memo' ? "예: 💻 교실 무선 와이파이 & 비번" : "예: 🍱 급식 지도 및 학예회 역할 분담표"}
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full text-[16px] font-bold px-4 py-3 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors placeholder-[#b0b8c1] text-[#191f28]"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">카드의 간단한 한 줄 요약 (선택사항)</label>
-            <input
-              type="text"
-              placeholder="카드 카드 목록에서 보일 간단한 개요"
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              className="w-full px-4 py-2.5 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] text-[#191f28] text-[14px] placeholder-[#b0b8c1]"
-            />
-          </div>
-
-          {newType === 'memo' && (
-            <div>
-              <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">메모 상세 본문 내용</label>
-              <textarea
-                placeholder="비밀번호, 사용 방법, 공지사항 등 자유롭게 작성하세요..."
-                value={newContent}
-                onChange={(e) => setNewContent(e.target.value)}
-                className="w-full h-32 px-4 py-3 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#3b82f6] transition-colors resize-none placeholder-[#b0b8c1] text-[#191f28] text-[14.5px] leading-relaxed font-sans"
-              />
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">카테고리</label>
-              <select
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value as any)}
-                className="w-full px-3 py-2.5 bg-[#f2f4f6] border-none rounded-xl text-[13.5px] font-bold text-[#191f28] focus:ring-2 focus:ring-[#10b981] outline-none"
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4 animate-fade-in">
+          <div className="bg-white rounded-[28px] p-6 sm:p-7 w-full max-w-xl shadow-2xl border border-white max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-[#f2f4f6] pb-3.5">
+              <h3 className="text-lg font-bold text-[#191f28] flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#10b981]" />
+                새 공유 정보 카드 개설
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsComposing(false)}
+                className="p-1.5 text-[#8b95a1] hover:text-[#191f28] hover:bg-[#f2f4f6] rounded-xl transition-colors"
               >
-                <option value="password">🔑 비밀번호</option>
-                <option value="equipment">📦 비품/위치</option>
-                <option value="tips">💡 동학년 꿀팁</option>
-                <option value="duty">🍱 역할 분담</option>
-                <option value="general">📑 일반 정보</option>
-              </select>
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            
-            <div className="flex items-center sm:pt-6">
-              <label className="flex items-center gap-2 cursor-pointer select-none bg-[#fff5f5] hover:bg-[#ffe3e3] px-4 py-2.5 rounded-xl border border-[#fecdd3] transition-colors w-full">
-                <input
-                  type="checkbox"
-                  checked={newIsImportant}
-                  onChange={(e) => setNewIsImportant(e.target.checked)}
-                  className="w-4 h-4 rounded text-[#f04452] focus:ring-[#f04452] accent-[#f04452] cursor-pointer"
-                />
-                <span className="text-[13.5px] font-bold text-[#f04452] flex items-center gap-1.5 truncate">
-                  <Pin className="w-4 h-4 fill-[#f04452] shrink-0" />
-                  📌 [필독] 정보로 설정 (상단 고정)
-                </span>
-              </label>
-            </div>
-          </div>
 
-          <div className="flex justify-end pt-3 border-t border-[#f8faf9]">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={cn(
-                "text-white px-7 py-3 rounded-xl font-bold active:scale-95 transition-all text-[14px] disabled:opacity-50 flex items-center gap-2 shadow-sm",
-                newType === 'memo' ? "bg-[#3b82f6] hover:bg-[#2563eb]" : "bg-[#10b981] hover:bg-[#059669]"
+            <form onSubmit={handleCreateCard} className="space-y-4 pt-1">
+              {/* Card Type Selector */}
+              <div className="flex items-center gap-2 p-1.5 bg-[#f2f4f6] rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setNewType('memo')}
+                  className={cn(
+                    "flex-1 py-2.5 px-4 rounded-xl font-bold text-[13.5px] transition-all flex items-center justify-center gap-2",
+                    newType === 'memo'
+                      ? "bg-white text-[#3b82f6] shadow-xs"
+                      : "text-[#64748b] hover:text-[#191f28]"
+                  )}
+                >
+                  <Sparkles className="w-4 h-4 text-[#3b82f6]" />
+                  📝 스마트 메모 (앱내 저장)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewType('sheet')}
+                  className={cn(
+                    "flex-1 py-2.5 px-4 rounded-xl font-bold text-[13.5px] transition-all flex items-center justify-center gap-2",
+                    newType === 'sheet'
+                      ? "bg-white text-[#10b981] shadow-xs"
+                      : "text-[#64748b] hover:text-[#191f28]"
+                  )}
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-[#10b981]" />
+                  📊 구글 시트 연동 카드
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">카드 제목</label>
+                <input
+                  type="text"
+                  placeholder={newType === 'memo' ? "예: 💻 교실 무선 와이파이 & 비번" : "예: 🍱 급식 지도 및 학예회 역할 분담표"}
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full text-[16px] font-bold px-4 py-3 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors placeholder-[#b0b8c1] text-[#191f28]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">카드의 간단한 한 줄 요약 (선택사항)</label>
+                <input
+                  type="text"
+                  placeholder="카드 목록에서 보일 간단한 개요"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] text-[#191f28] text-[14px] placeholder-[#b0b8c1]"
+                />
+              </div>
+
+              {newType === 'memo' && (
+                <div>
+                  <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">메모 상세 본문 내용</label>
+                  <textarea
+                    placeholder="비밀번호, 사용 방법, 공지사항 등 자유롭게 작성하세요..."
+                    value={newContent}
+                    onChange={(e) => setNewContent(e.target.value)}
+                    className="w-full h-32 px-4 py-3 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#3b82f6] transition-colors resize-none placeholder-[#b0b8c1] text-[#191f28] text-[14.5px] leading-relaxed font-sans"
+                  />
+                </div>
               )}
-            >
-              {isLoading ? '구글 시트 탭 생성 중...' : (newType === 'memo' ? '스마트 메모 카드 만들기' : '구글 시트 연동 카드 만들기')}
-            </button>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">카테고리</label>
+                  <select
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value as any)}
+                    className="w-full px-3 py-2.5 bg-[#f2f4f6] border-none rounded-xl text-[13.5px] font-bold text-[#191f28] focus:ring-2 focus:ring-[#10b981] outline-none"
+                  >
+                    <option value="password">🔑 비밀번호</option>
+                    <option value="equipment">📦 비품/위치</option>
+                    <option value="tips">💡 동학년 꿀팁</option>
+                    <option value="duty">🍱 역할 분담</option>
+                    <option value="general">📑 일반 정보</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-center sm:pt-6">
+                  <label className="flex items-center gap-2 cursor-pointer select-none bg-[#fff5f5] hover:bg-[#ffe3e3] px-4 py-2.5 rounded-xl border border-[#fecdd3] transition-colors w-full">
+                    <input
+                      type="checkbox"
+                      checked={newIsImportant}
+                      onChange={(e) => setNewIsImportant(e.target.checked)}
+                      className="w-4 h-4 rounded text-[#f04452] focus:ring-[#f04452] accent-[#f04452] cursor-pointer"
+                    />
+                    <span className="text-[13.5px] font-bold text-[#f04452] flex items-center gap-1.5 truncate">
+                      <Pin className="w-4 h-4 fill-[#f04452] shrink-0" />
+                      📌 [필독] 정보로 설정
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#f2f4f6]">
+                <button
+                  type="button"
+                  onClick={() => setIsComposing(false)}
+                  className="px-5 py-2.5 bg-[#f2f4f6] text-[#4e5968] font-bold rounded-xl hover:bg-[#e5e8eb] transition-colors text-[14px]"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={cn(
+                    "text-white px-6 py-2.5 rounded-xl font-bold active:scale-95 transition-all text-[14px] disabled:opacity-50 flex items-center gap-2 shadow-sm",
+                    newType === 'memo' ? "bg-[#3b82f6] hover:bg-[#2563eb]" : "bg-[#10b981] hover:bg-[#059669]"
+                  )}
+                >
+                  {isLoading ? '구글 시트 탭 생성 중...' : (newType === 'memo' ? '스마트 메모 카드 만들기' : '구글 시트 연동 카드 만들기')}
+                </button>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       )}
 
       {/* SHEET CARDS GRID LIST */}
