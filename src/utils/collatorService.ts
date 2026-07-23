@@ -159,19 +159,19 @@ export class CollatorService {
           };
         });
 
-        // 🌟 Smart Class-based & ID Deduplication:
-        // Keep only the most recently active profile for each class (e.g. "2반") or user ID
+        // 🌟 Smart Class-based & Name Deduplication:
+        // Keep only the most recently active profile for each class (e.g. "2반") or full teacher name
         const teacherMap = new Map<string, TeacherProfile>();
 
         // Sort by lastActive ascending so newer entry overwrites older entry
         rawTeachers.sort((a, b) => (a.lastActive || 0) - (b.lastActive || 0));
 
         rawTeachers.forEach(t => {
-          // Extract class identifier prefix if present (e.g. "2반" from "2반 한미소")
-          const match = t.name ? t.name.trim().match(/^(\d+반)/) : null;
-          const key = match ? match[1] : t.id; // Use "2반" as key if present, otherwise ID
+          const trimmedName = t.name ? t.name.trim() : '';
+          const match = trimmedName.match(/^(\d+반)/);
+          const key = match ? match[1] : (trimmedName || t.id);
 
-          teacherMap.set(key, t); // Overwrites older record for "2반" automatically!
+          teacherMap.set(key, t); // Overwrites older record for same teacher/class automatically!
         });
 
         this.teachers = Array.from(teacherMap.values());
@@ -184,13 +184,17 @@ export class CollatorService {
 
   // Explicitly remove current user from DB (used during user switch / logout)
   public async removeCurrentUser() {
-    if (!this.db || !this.myProfile || this.myProfile.isAdmin) return;
+    if (!this.db || !this.myProfile) return;
     const myId = this.myProfile.id;
     const teacherRef = ref(this.db, `teachers/${myId}`);
     const onlineRef = ref(this.db, `teachers/${myId}/online`);
     
-    await onDisconnect(onlineRef).cancel();
-    await remove(teacherRef);
+    try {
+      await onDisconnect(onlineRef).cancel();
+      await remove(teacherRef);
+    } catch (e) {
+      console.warn('Remove current user presence fallback error:', e);
+    }
   }
 
   // 2) Sync Rooms & Submissions Realtime

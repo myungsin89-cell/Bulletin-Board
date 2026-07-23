@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
+import { collatorService } from '../utils/collatorService';
+
 interface UserProfile {
   uid: string;
   displayName: string;
@@ -38,9 +40,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (name: string) => {
     if (!name.trim()) return;
     
+    const trimmedName = name.trim();
+    const existingStored = localStorage.getItem('teacher_profile');
+    let uid = '';
+    if (existingStored) {
+      try {
+        const parsed = JSON.parse(existingStored);
+        if (parsed.displayName === trimmedName && parsed.uid) {
+          uid = parsed.uid;
+        }
+      } catch (e) {}
+    }
+    
+    if (!uid) {
+      uid = 'user_' + encodeURIComponent(trimmedName.replace(/\s+/g, '_'));
+    }
+    
     const newProfile: UserProfile = {
-      uid: 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-      displayName: name.trim(),
+      uid: uid,
+      displayName: trimmedName,
       email: 'no-email@local.com',
       role: 'teacher',
       createdAt: new Date().toISOString()
@@ -51,6 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    try {
+      collatorService.removeCurrentUser();
+    } catch (e) {}
     localStorage.removeItem('teacher_profile');
     setProfile(null);
   };
