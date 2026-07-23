@@ -110,26 +110,28 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[#f2f4f6] flex flex-col font-sans">
-      {/* Top Navigation */}
-      <header className="bg-white sticky top-0 z-40 border-b border-[#f2f4f6]">
+      {/* Top Navigation Bar */}
+      <header className="bg-white sticky top-0 z-40 border-b border-[#e5e8eb] shadow-[0_2px_15px_rgba(0,0,0,0.03)]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
-                <img src={appLogo} alt="동학년 게시판" className="w-7.5 h-7.5 object-contain" />
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0] flex items-center justify-center shrink-0 shadow-2xs">
+                <img src={appLogo} alt="동학년 게시판" className="w-6.5 h-6.5 object-contain" />
               </div>
               <div className="flex flex-col leading-tight justify-center">
-                <h1 className="text-[17px] sm:text-xl font-bold text-[#191f28] tracking-tight">동학년 게시판</h1>
+                <h1 className="text-[18px] sm:text-xl font-extrabold text-[#191f28] tracking-tight flex items-center gap-1.5">
+                  동학년 게시판
+                </h1>
                 {subTitle && (
-                  <span className="text-[11.5px] font-bold text-[#10b981] tracking-tight truncate max-w-[180px] sm:max-w-[240px]">
+                  <span className="text-[11.5px] font-extrabold text-[#10b981] tracking-tight truncate max-w-[180px] sm:max-w-[240px]">
                     {subTitle}
                   </span>
                 )}
               </div>
             </div>
             
-            <div className="flex items-center gap-4">
-              <div className="hidden sm:flex items-center gap-1 mr-4">
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-1 mr-2">
                 {navItems.map((item) => {
                   const isActive = location.pathname === item.href;
                   return (
@@ -137,10 +139,10 @@ export function Layout({ children }: { children: ReactNode }) {
                       key={item.name}
                       to={item.href}
                       className={cn(
-                        "px-4 py-2 rounded-xl text-[15px] font-semibold transition-all",
+                        "px-4 py-2 rounded-xl text-[14.5px] font-bold transition-all",
                         isActive 
-                          ? "text-[#191f28] bg-[#f2f4f6]" 
-                          : "text-[#4e5968] hover:bg-[#f2f4f6] hover:text-[#191f28]"
+                          ? "text-[#10b981] bg-[#ecfdf5] shadow-2xs" 
+                          : "text-[#4e5968] hover:bg-[#f8fafc] hover:text-[#191f28]"
                       )}
                     >
                       {item.name}
@@ -149,19 +151,19 @@ export function Layout({ children }: { children: ReactNode }) {
                 })}
               </div>
               
-              <div className="flex items-center gap-2 pl-4 border-l border-[#f2f4f6]">
-                <div className="flex flex-col items-end hidden sm:flex mr-2">
-                  <span className="text-[14px] font-bold text-[#191f28] flex items-center gap-1">
+              <div className="flex items-center gap-2 pl-3 border-l border-[#e5e8eb]">
+                <div className="flex flex-col items-end hidden sm:flex mr-1">
+                  <span className="text-[13.5px] font-bold text-[#191f28] flex items-center gap-1">
                     {profile?.role === 'admin' && <span className="text-[12px]">👑</span>}
                     {profile?.displayName}
                   </span>
-                  <span className={cn("text-[11.5px] font-bold", profile?.role === 'admin' ? "text-[#10b981]" : "text-[#8b95a1]")}>
+                  <span className={cn("text-[11px] font-extrabold", profile?.role === 'admin' ? "text-[#10b981]" : "text-[#8b95a1]")}>
                     {profile?.role === 'admin' ? '관리자' : '선생님'}
                   </span>
                 </div>
                 <button 
                   onClick={() => setIsSettingsOpen(true)}
-                  className="p-2 text-[#8b95a1] hover:text-[#191f28] hover:bg-[#f2f4f6] rounded-xl transition-colors animate-fade-in"
+                  className="p-2 text-[#8b95a1] hover:text-[#191f28] hover:bg-[#f8fafc] rounded-xl transition-colors animate-fade-in"
                   title="시스템 설정 및 관리자 로그인"
                 >
                   <Settings className="w-5 h-5" />
