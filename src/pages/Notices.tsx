@@ -110,13 +110,41 @@ export function Notices() {
     }
   }, [todayStr]);
 
-  // 3) Fetch Opinions safely (filter only opinions NOT voted on yet by the current user)
+  // 3) Fetch Opinions safely (combines Firestore & LocalStorage fallback)
   useEffect(() => {
-    if (!db || !profile) return;
+    if (!profile) return;
+
+    const loadLocalOpinions = () => {
+      try {
+        const stored = localStorage.getItem('donghaknyeon_opinions_persistence_v1');
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    };
+
+    const processOpinions = (opList: any[]) => {
+      // Filter out opinions where current user has already voted
+      const notVotedYet = opList.filter(op => {
+        if (!op) return false;
+        const votes = op.votes || {};
+        const myUid = profile.uid;
+        const myName = profile.displayName;
+        return votes[myUid] === undefined && votes[myName] === undefined;
+      });
+
+      setActiveOpinions(notVotedYet.slice(0, 3));
+    };
+
+    if (!db) {
+      processOpinions(loadLocalOpinions());
+      return;
+    }
+
     try {
-      const q = query(collection(db, 'opinions'), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, 'opinions'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        const opinionsData = snapshot.docs.map(docSnap => {
+        const serverOpinions = snapshot.docs.map(docSnap => {
           const data = docSnap.data() || {};
           return {
             id: docSnap.id,
@@ -124,24 +152,26 @@ export function Notices() {
             description: data.description || '',
             votes: data.votes || {},
             options: data.options || [],
+            createdAt: data.createdAt
           } as OpinionItem;
         });
 
-        // Filter out opinions where profile.uid already cast a vote
-        const notVotedYet = opinionsData.filter(op => {
-          const votes = op.votes || {};
-          return votes[profile.uid] === undefined;
-        });
+        const localOpinions = loadLocalOpinions();
+        const mergedMap = new Map<string, OpinionItem>();
+        localOpinions.forEach((o: any) => mergedMap.set(o.id, o));
+        serverOpinions.forEach(o => mergedMap.set(o.id, o));
 
-        setActiveOpinions(notVotedYet.slice(0, 3));
+        const mergedList = Array.from(mergedMap.values());
+        processOpinions(mergedList);
       }, (err) => {
-        console.warn('Opinions fetch error:', err);
+        console.warn('Opinions fetch fallback:', err);
+        processOpinions(loadLocalOpinions());
       });
       return unsubscribe;
     } catch (e) {
-      console.error(e);
+      processOpinions(loadLocalOpinions());
     }
-  }, [profile?.uid]);
+  }, [profile?.uid, profile?.displayName]);
 
   // 4) Fetch P2P File Submissions from Collator safely
   useEffect(() => {
@@ -487,18 +517,13 @@ export function Notices() {
           {/* 2) Pending File Submissions Widget */}
           <div className="bg-white p-6 rounded-[24px] border border-[#f2f4f6] shadow-sm space-y-4">
             <div className="flex justify-between items-center pb-2.5 border-b border-[#f8faf9]">
-              <h3 className="text-[16.5px] font-bold text-[#191f28] flex items-center gap-1.5">
+              <h3 className="text-[16.5px] font-bold text-[#191f28] flex items-center gap-1.5 shrink-0">
                 <FileUp className="w-5 h-5 text-[#10b981]" />
                 📥 미제출 취합 요청
-                {pendingSubmissions.length > 0 && (
-                  <span className="bg-[#f04452] text-white text-[11px] font-bold px-2 py-0.5 rounded-full ml-1">
-                    {pendingSubmissions.length}
-                  </span>
-                )}
               </h3>
               <Link 
                 to="/collator" 
-                className="text-[13.5px] text-[#10b981] hover:underline flex items-center gap-0.5 font-bold"
+                className="text-[13.5px] text-[#10b981] hover:underline flex items-center gap-0.5 font-bold shrink-0"
               >
                 취합 제출 <ChevronRight className="w-4 h-4" />
               </Link>
