@@ -8,7 +8,13 @@ import { cn } from '../utils/cn';
 const getSchoolCode = () => {
   if (!firebaseConfig) return '';
   try {
-    const jsonStr = JSON.stringify(firebaseConfig);
+    const compactObj = {
+      p: firebaseConfig.projectId || '',
+      k: firebaseConfig.apiKey || '',
+      d: firebaseConfig.firestoreDatabaseId || '',
+      u: firebaseConfig.databaseURL || ''
+    };
+    const jsonStr = JSON.stringify(compactObj);
     const base64Str = btoa(unescape(encodeURIComponent(jsonStr)));
     return `SBC-${base64Str}`;
   } catch (e) {

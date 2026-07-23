@@ -55,7 +55,15 @@ function DatabaseSetupOnboarding() {
     try {
       const base64Str = code.substring(4);
       const decodedJson = decodeURIComponent(escape(atob(base64Str)));
-      const config = JSON.parse(decodedJson);
+      let config: any = JSON.parse(decodedJson);
+      if (config.p || config.k) {
+        config = {
+          projectId: config.p,
+          apiKey: config.k,
+          firestoreDatabaseId: config.d || undefined,
+          databaseURL: config.u || `https://${config.p}-default-rtdb.firebaseio.com`
+        };
+      }
       if (!config || (!config.databaseURL && !config.projectId)) {
         throw new Error('Invalid config');
       }
