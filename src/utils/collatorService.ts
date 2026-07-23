@@ -83,17 +83,27 @@ export class CollatorService {
     }
   }
 
+  private heartbeatTimer: any = null;
+
+  public updateProfile(profile: any) {
+    if (!profile) return;
+    this.myProfile = {
+      id: profile.uid || 't_' + Math.random().toString(36).substring(2, 11),
+      name: profile.displayName || '이름 없음',
+      role: profile.role || '선생님',
+      isAdmin: profile.role === 'admin'
+    };
+    if (this.db) {
+      this.setupPresence();
+    }
+  }
+
   private initProfile() {
     const stored = localStorage.getItem('teacher_profile');
     if (stored) {
       try {
         const profile = JSON.parse(stored);
-        this.myProfile = {
-          id: profile.uid || 't_' + Math.random().toString(36).substring(2, 11),
-          name: profile.displayName || '이름 없음',
-          role: profile.role || '선생님',
-          isAdmin: profile.role === 'admin'
-        };
+        this.updateProfile(profile);
       } catch (e) {
         console.error('Failed to parse user profile', e);
       }
@@ -118,32 +128,54 @@ export class CollatorService {
     if (!this.db || !this.myProfile) return;
 
     const myId = this.myProfile.id;
+    const teacherRef = ref(this.db, `teachers/${myId}`);
+    const isSpecial = (this.myProfile.role || '').includes('전담') || 
+                      (this.myProfile.role || '').includes('영어') || 
+                      (this.myProfile.role || '').includes('체육') || 
+                      (this.myProfile.role || '').includes('과학') || 
+                      (this.myProfile.role || '').includes('음악') || 
+                      (this.myProfile.role || '').includes('정보');
     
-    // Only register actual teachers (not admin managers) in the database presence node
-    if (!this.myProfile.isAdmin) {
-      const teacherRef = ref(this.db, `teachers/${myId}`);
-      const isSpecial = this.myProfile.role.includes('전담') || 
-                        this.myProfile.role.includes('영어') || 
-                        this.myProfile.role.includes('체육') || 
-                        this.myProfile.role.includes('과학') || 
-                        this.myProfile.role.includes('음악') || 
-                        this.myProfile.role.includes('정보');
-      
-      const myData: TeacherProfile = {
-        id: myId,
-        name: this.myProfile.name,
-        role: this.myProfile.role,
-        grade: 4, // Default grade
-        isSpecial: isSpecial,
-        online: true,
-        lastActive: Date.now()
-      };
+    const myData: TeacherProfile = {
+      id: myId,
+      name: this.myProfile.name,
+      role: this.myProfile.role,
+      grade: 4, // Default grade
+      isSpecial: isSpecial,
+      online: true,
+      lastActive: Date.now()
+    };
 
+    // Firebase .info/connected listener for seamless reconnection
+    const connectedRef = ref(this.db, '.info/connected');
+    onValue(connectedRef, async (snap) => {
+      if (snap.val() === true) {
+        try {
+          await onDisconnect(teacherRef).update({ online: false, lastActive: Date.now() });
+          await set(teacherRef, myData);
+        } catch (e) {
+          console.warn('Presence set error:', e);
+        }
+      }
+    });
+
+    // Immediate initial presence write
+    try {
       await set(teacherRef, myData);
+    } catch (e) {}
 
-      const onlineRef = ref(this.db, `teachers/${myId}/online`);
-      onDisconnect(onlineRef).set(false);
-    }
+    // Heartbeat timer (every 15s) to update lastActive and maintain online status
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = setInterval(async () => {
+      if (this.db && this.myProfile) {
+        try {
+          await update(ref(this.db, `teachers/${this.myProfile.id}`), {
+            online: true,
+            lastActive: Date.now()
+          });
+        } catch (e) {}
+      }
+    }, 15000);
 
     // Listen to all connected teachers and automatically deduplicate by class & ID
     const teachersRef = ref(this.db, 'teachers');
@@ -151,11 +183,15 @@ export class CollatorService {
       const data = snapshot.val();
       if (data) {
         const rawTeachers: TeacherProfile[] = Object.entries(data).map(([key, val]: [string, any]) => {
+          const lastActive = val.lastActive || 0;
+          // Mark offline if inactive for more than 10 minutes
+          const isStale = Date.now() - lastActive > 10 * 60 * 1000;
           return {
             id: val.id || key,
             name: val.name || '알 수 없는 사용자',
-            role: val.role || '역할 없음',
-            ...val
+            role: val.role || '선생님',
+            ...val,
+            online: isStale ? false : (val.online !== false)
           };
         });
 
@@ -174,9 +210,44 @@ export class CollatorService {
           teacherMap.set(key, t); // Overwrites older record for same teacher/class automatically!
         });
 
-        this.teachers = Array.from(teacherMap.values());
+        const list = Array.from(teacherMap.values());
+
+        // Always guarantee current user is marked online in local list
+        let selfFound = false;
+        list.forEach(t => {
+          if (t.id === myId || (t.name && t.name.trim() === this.myProfile?.name.trim())) {
+            t.online = true;
+            selfFound = true;
+          }
+        });
+
+        if (!selfFound && this.myProfile) {
+          list.push({
+            id: myId,
+            name: this.myProfile.name,
+            role: this.myProfile.role,
+            grade: 4,
+            isSpecial: isSpecial,
+            online: true,
+            lastActive: Date.now()
+          });
+        }
+
+        this.teachers = list;
       } else {
-        this.teachers = [];
+        if (this.myProfile) {
+          this.teachers = [{
+            id: myId,
+            name: this.myProfile.name,
+            role: this.myProfile.role,
+            grade: 4,
+            isSpecial: isSpecial,
+            online: true,
+            lastActive: Date.now()
+          }];
+        } else {
+          this.teachers = [];
+        }
       }
       this.triggerEvent('presenceChange');
     });
@@ -184,6 +255,10 @@ export class CollatorService {
 
   // Explicitly remove current user from DB (used during user switch / logout)
   public async removeCurrentUser() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
     if (!this.db || !this.myProfile) return;
     const myId = this.myProfile.id;
     const teacherRef = ref(this.db, `teachers/${myId}`);

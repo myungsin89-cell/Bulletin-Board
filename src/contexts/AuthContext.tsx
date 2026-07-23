@@ -66,6 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     localStorage.setItem('teacher_profile', JSON.stringify(newProfile));
     setProfile(newProfile);
+    try {
+      collatorService.updateProfile(newProfile);
+    } catch (e) {}
   };
 
   const logout = async () => {
@@ -98,6 +101,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updatedProfile = { ...profile, role: 'admin' as const };
       localStorage.setItem('teacher_profile', JSON.stringify(updatedProfile));
       setProfile(updatedProfile);
+      try {
+        collatorService.updateProfile(updatedProfile);
+      } catch (e) {}
       return true;
     }
     return false;

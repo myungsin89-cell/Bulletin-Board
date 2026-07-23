@@ -43,6 +43,9 @@ export function Collator() {
 
   // Setup Firebase synchronizer
   useEffect(() => {
+    if (profile) {
+      collatorService.updateProfile(profile);
+    }
     collatorService.initFirebase();
     
     const updateLocalStates = () => {
