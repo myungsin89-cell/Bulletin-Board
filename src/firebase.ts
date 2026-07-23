@@ -37,7 +37,15 @@ let rtdb: any = null;
 if (isFirebaseConfigured) {
   try {
     const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    try {
+      if (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)') {
+        db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+      } else {
+        db = getFirestore(app);
+      }
+    } catch (e) {
+      db = getFirestore(app);
+    }
     
     enableIndexedDbPersistence(db).catch((err) => {
       if (err.code === 'failed-precondition') {

@@ -213,8 +213,8 @@ export function Notices() {
     const isScheduled = n.startDate && todayStr < n.startDate;
     const isExpired = n.endDate && todayStr > n.endDate;
 
-    if (isExpired) return false; // Expired notices are automatically hidden
-    if (isScheduled && !isAuthorOrAdmin) return false; // Scheduled posts hidden from other teachers until start date
+    if (isExpired && !isAuthorOrAdmin) return false; // Expired notices hidden from regular teachers
+    if (isScheduled && !isAuthorOrAdmin) return false; // Scheduled posts hidden from regular teachers until start date
     return true;
   });
 
@@ -359,7 +359,12 @@ export function Notices() {
                           <CalendarIcon className="w-3.5 h-3.5" /> {notice.startDate} 게시 예정 (예약)
                         </span>
                       )}
-                      {notice.endDate && (
+                      {notice.endDate && todayStr > notice.endDate && (
+                        <span className="flex items-center gap-1 text-[12px] font-extrabold text-[#d97706] bg-[#fffbeb] px-2.5 py-0.5 rounded-md border border-[#fef3c7]">
+                          <AlertTriangle className="w-3.5 h-3.5 text-[#d97706]" /> ~ {notice.endDate} 게시 종료됨 (타인에게 숨김)
+                        </span>
+                      )}
+                      {notice.endDate && todayStr <= notice.endDate && (
                         <span className="flex items-center gap-1 text-[12px] font-bold text-[#475569] bg-[#f1f5f9] px-2.5 py-0.5 rounded-md border border-[#cbd5e1]">
                           <CalendarIcon className="w-3.5 h-3.5 text-[#f04452]" /> ~ {notice.endDate} 마감 예정
                         </span>
