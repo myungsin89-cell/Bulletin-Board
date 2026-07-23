@@ -15,7 +15,7 @@ export function Collator() {
   const [createdRooms, setCreatedRooms] = useState<CollectionRoom[]>([]);
   const [mySubmissions, setMySubmissions] = useState<SubmissionItem[]>([]);
   const [groups, setGroups] = useState<CustomGroup[]>([]);
-  const [roomFilter, setRoomFilter] = useState<'all' | 'mine'>('all');
+  const [roomFilter, setRoomFilter] = useState<'mine' | 'all'>('mine');
   
   // Modal & Form States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -101,19 +101,34 @@ export function Collator() {
       creatorName
     );
 
-    if (room) {
-      setNewRoomTitle('');
-      setNewRoomFolderPath('');
+    setIsCreateModalOpen(false);
+    setNewRoomTitle('');
+    setNewRoomFolderPath('');
+    setSelectedTeacherIds([]);
+    setRoomFilter('mine');
+
+    alert(`"${room.title}" 취합 요청방이 성공적으로 개설되었습니다!`);
+  };
+
+  const handleDeleteRoom = async (roomId: string) => {
+    await collatorService.deleteCollectionRoom(roomId);
+    setDeleteRoomTargetId(null);
+  };
+
+  const handleSelectAllTeachers = () => {
+    if (selectedTeacherIds.length === teachers.length) {
       setSelectedTeacherIds([]);
-      setIsCreateModalOpen(false);
+    } else {
+      setSelectedTeacherIds(teachers.map(t => t.id));
     }
   };
 
-  // Confirm Delete Room via Custom React Modal
-  const confirmDeleteRoom = async () => {
-    if (!deleteRoomTargetId) return;
-    await collatorService.deleteCollectionRoom(deleteRoomTargetId);
-    setDeleteRoomTargetId(null);
+  const handleToggleTeacherSelect = (teacherId: string) => {
+    if (selectedTeacherIds.includes(teacherId)) {
+      setSelectedTeacherIds(selectedTeacherIds.filter(id => id !== teacherId));
+    } else {
+      setSelectedTeacherIds([...selectedTeacherIds, teacherId]);
+    }
   };
 
   // Submit file WebRTC signaling
@@ -166,10 +181,11 @@ export function Collator() {
   const myProfileId = collatorService.myProfile?.id;
   const myDisplayName = profile?.displayName;
 
-  // Filtered rooms logic
-  const myCreatedRoomsCount = createdRooms.filter(room => 
+  // Filtered rooms logic: Only show my created rooms unless admin explicitly toggles all
+  const myCreatedRooms = createdRooms.filter(room => 
     room.creatorId === myProfileId || room.creatorName === myDisplayName || room.creatorName === '나'
-  ).length;
+  );
+  const myCreatedRoomsCount = myCreatedRooms.length;
 
   const filteredRooms = createdRooms.filter(room => {
     if (roomFilter === 'mine') {
@@ -177,6 +193,13 @@ export function Collator() {
     }
     return true;
   });
+
+  const shouldShowRoomsSection = myCreatedRoomsCount > 0 || isAdmin || roomFilter === 'all';
+
+  const confirmDeleteRoom = async () => {
+    if (!deleteRoomTargetId) return;
+    await handleDeleteRoom(deleteRoomTargetId);
+  };
 
   return (
     <div className="space-y-6 font-sans max-w-5xl mx-auto">
@@ -222,49 +245,52 @@ export function Collator() {
         />
       </div>
 
-      {/* 🌟 2. 전체 및 내가 올린 취합 요청 목록 */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <h3 className="text-[18px] font-bold text-[#191f28] flex items-center gap-2">
-            📂 취합 요청 목록
-            <span className="text-[12px] bg-white text-[#8b95a1] px-2.5 py-1 rounded-full border font-mono">
-              {filteredRooms.length}개
-            </span>
-          </h3>
-
-          {/* Filter Tabs & Admin Badge */}
-          <div className="flex items-center gap-2">
-            <div className="flex bg-[#f2f4f6] p-1 rounded-xl">
-              <button
-                onClick={() => setRoomFilter('all')}
-                className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-all ${
-                  roomFilter === 'all' 
-                    ? 'bg-white text-[#191f28] shadow-xs' 
-                    : 'text-[#8b95a1] hover:text-[#4e5968]'
-                }`}
-              >
-                전체 목록 ({createdRooms.length})
-              </button>
-              <button
-                onClick={() => setRoomFilter('mine')}
-                className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-all flex items-center gap-1 ${
-                  roomFilter === 'mine' 
-                    ? 'bg-[#10b981] text-white shadow-xs' 
-                    : 'text-[#8b95a1] hover:text-[#4e5968]'
-                }`}
-              >
-                <Star className="w-3.5 h-3.5 fill-current" />
-                내가 올린 요청만 ({myCreatedRoomsCount})
-              </button>
-            </div>
-
-            {isAdmin && (
-              <span className="hidden lg:inline-block text-[11.5px] text-[#10b981] font-bold bg-[#e8f7f2] px-2.5 py-1.5 rounded-xl border border-[#c2f0de]">
-                👑 관리자 정리 권한
+      {/* 🌟 2. 내가 올린 취합 요청 목록 (요청이 없으면 섹션 숨김/닫음) */}
+      {shouldShowRoomsSection && (
+        <div className="space-y-4 animate-fade-in">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <h3 className="text-[18px] font-bold text-[#191f28] flex items-center gap-2">
+              📂 내 취합 요청 목록
+              <span className="text-[12px] bg-white text-[#8b95a1] px-2.5 py-1 rounded-full border font-mono">
+                {filteredRooms.length}개
               </span>
-            )}
+            </h3>
+
+            {/* Filter Tabs & Admin Badge */}
+            <div className="flex items-center gap-2">
+              {(isAdmin || createdRooms.length > myCreatedRoomsCount) && (
+                <div className="flex bg-[#f2f4f6] p-1 rounded-xl">
+                  <button
+                    onClick={() => setRoomFilter('mine')}
+                    className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-all flex items-center gap-1 ${
+                      roomFilter === 'mine' 
+                        ? 'bg-[#10b981] text-white shadow-xs' 
+                        : 'text-[#8b95a1] hover:text-[#4e5968]'
+                    }`}
+                  >
+                    <Star className="w-3.5 h-3.5 fill-current" />
+                    내가 올린 요청만 ({myCreatedRoomsCount})
+                  </button>
+                  <button
+                    onClick={() => setRoomFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-all ${
+                      roomFilter === 'all' 
+                        ? 'bg-white text-[#191f28] shadow-xs' 
+                        : 'text-[#8b95a1] hover:text-[#4e5968]'
+                    }`}
+                  >
+                    전체 목록 ({createdRooms.length})
+                  </button>
+                </div>
+              )}
+
+              {isAdmin && (
+                <span className="hidden lg:inline-block text-[11.5px] text-[#10b981] font-bold bg-[#e8f7f2] px-2.5 py-1.5 rounded-xl border border-[#c2f0de]">
+                  👑 관리자 정리 권한
+                </span>
+              )}
+            </div>
           </div>
-        </div>
 
         {filteredRooms.length === 0 ? (
           <div className="bg-white rounded-[24px] p-10 text-center border border-[#f2f4f6]">
@@ -392,6 +418,7 @@ export function Collator() {
           </div>
         )}
       </div>
+      )}
 
       {/* 3. TEACHER VIEW: 내가 제출해야 할 취합 요청 목록 */}
       <div className="space-y-4">
