@@ -2,7 +2,7 @@ import React, { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { firebaseConfig } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Calendar, MessageSquare, Bell, CalendarDays, LogOut, BookOpen, Shield, FolderDown, Settings, RotateCcw, FileSpreadsheet, Copy, Check } from 'lucide-react';
+import { Calendar, MessageSquare, Bell, CalendarDays, LogOut, BookOpen, Shield, FolderDown, Settings, RotateCcw, FileSpreadsheet, Copy, Check, Key } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 const getSchoolCode = () => {
@@ -40,6 +40,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   const [isCodeCopied, setIsCodeCopied] = useState(false);
+  const [newAdminPass, setNewAdminPass] = useState('');
+  const [newAdminPassConfirm, setNewAdminPassConfirm] = useState('');
 
   const handleAdminClick = () => {
     if (profile?.role === 'admin') {
@@ -273,6 +275,61 @@ export function Layout({ children }: { children: ReactNode }) {
                 </div>
               </div>
             )}
+            {/* Change Admin Password Section */}
+            <div className="mb-5 p-3.5 bg-[#f8fafc] rounded-2xl border border-[#e2e8f0]">
+              <span className="text-[12.5px] font-bold text-[#4e5968] block mb-2 flex items-center gap-1">
+                <Key className="w-3.5 h-3.5 text-[#10b981]" /> 관리자 비밀번호 변경
+              </span>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="password"
+                    maxLength={4}
+                    value={newAdminPass}
+                    onChange={(e) => setNewAdminPass(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="새 번호 (숫자 4자리)"
+                    className="w-full px-3 py-2 bg-white border border-[#e2e8f0] focus:border-[#10b981] rounded-xl text-[12.5px] outline-none text-center font-mono font-bold"
+                  />
+                  <input
+                    type="password"
+                    maxLength={4}
+                    value={newAdminPassConfirm}
+                    onChange={(e) => setNewAdminPassConfirm(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="확인 (숫자 4자리)"
+                    className="w-full px-3 py-2 bg-white border border-[#e2e8f0] focus:border-[#10b981] rounded-xl text-[12.5px] outline-none text-center font-mono font-bold"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!/^\d{4}$/.test(newAdminPass)) {
+                      alert('비밀번호는 숫자 4자리로 입력해 주세요.');
+                      return;
+                    }
+                    if (newAdminPass !== newAdminPassConfirm) {
+                      alert('입력하신 비밀번호와 확인 값이 일치하지 않습니다.');
+                      return;
+                    }
+                    localStorage.setItem('sb_admin_password', newAdminPass);
+                    const storedConfigStr = localStorage.getItem('sb_firebase_config');
+                    if (storedConfigStr) {
+                      try {
+                        const config = JSON.parse(storedConfigStr);
+                        config.adminPassword = newAdminPass;
+                        localStorage.setItem('sb_firebase_config', JSON.stringify(config));
+                      } catch (e) {}
+                    }
+                    setNewAdminPass('');
+                    setNewAdminPassConfirm('');
+                    setAlertMessage('관리자 비밀번호가 성공적으로 변경되었습니다!');
+                  }}
+                  className="w-full py-2 bg-[#10b981] hover:bg-[#059669] text-white font-bold rounded-xl text-[12.5px] transition-colors shadow-2xs"
+                >
+                  비밀번호 변경 저장
+                </button>
+              </div>
+            </div>
+
             <div className="flex gap-2">
               <button
                 type="button"

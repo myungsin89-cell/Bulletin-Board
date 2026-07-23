@@ -68,6 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (e) {}
     }
 
+    const customPassFromStorage = localStorage.getItem('sb_admin_password');
+    if (customPassFromStorage) {
+      customAdminPassword = customPassFromStorage;
+    }
+
     if ((password === '0000' || password === customAdminPassword) && profile) {
       const updatedProfile = { ...profile, role: 'admin' as const };
       localStorage.setItem('teacher_profile', JSON.stringify(updatedProfile));
