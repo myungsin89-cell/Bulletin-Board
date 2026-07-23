@@ -20,6 +20,8 @@ interface Notice {
   authorName: string;
   isImportant: boolean;
   imageUrl?: string;
+  startDate?: string;
+  endDate?: string;
   createdAt: any;
 }
 
@@ -49,6 +51,8 @@ export function Notices() {
   const [content, setContent] = useState('');
   const [isImportant, setIsImportant] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // States for Dashboard Widgets
@@ -165,6 +169,11 @@ export function Notices() {
     e.preventDefault();
     if (!title.trim() || !content.trim() || !profile || !db) return;
 
+    if (startDate && endDate && endDate < startDate) {
+      alert('종료일은 시작일보다 빠를 수 없습니다.');
+      return;
+    }
+
     try {
       await addDoc(collection(db, 'notices'), {
         title: title.trim(),
@@ -173,6 +182,8 @@ export function Notices() {
         authorName: profile.displayName,
         isImportant,
         ...(imageUrl.trim() ? { imageUrl: imageUrl.trim() } : {}),
+        ...(startDate ? { startDate } : {}),
+        ...(endDate ? { endDate } : {}),
         createdAt: serverTimestamp()
       });
       setIsComposing(false);
@@ -180,6 +191,8 @@ export function Notices() {
       setContent('');
       setIsImportant(false);
       setImageUrl('');
+      setStartDate('');
+      setEndDate('');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'notices');
     }
@@ -195,7 +208,17 @@ export function Notices() {
     }
   };
 
-  const sortedNotices = [...notices].sort((a, b) => {
+  const filteredNotices = notices.filter(n => {
+    const isAuthorOrAdmin = profile?.uid === n.authorId || profile?.role === 'admin';
+    const isScheduled = n.startDate && todayStr < n.startDate;
+    const isExpired = n.endDate && todayStr > n.endDate;
+
+    if (isExpired) return false; // Expired notices are automatically hidden
+    if (isScheduled && !isAuthorOrAdmin) return false; // Scheduled posts hidden from other teachers until start date
+    return true;
+  });
+
+  const sortedNotices = [...filteredNotices].sort((a, b) => {
     if (a.isImportant && !b.isImportant) return -1;
     if (!a.isImportant && b.isImportant) return 1;
     return 0;
@@ -259,7 +282,40 @@ export function Notices() {
                     className="w-full bg-transparent border-none focus:outline-none text-[14px] text-[#191f28] placeholder-[#b0b8c1]"
                   />
                 </div>
-                <div className="flex items-center gap-2">
+              </div>
+
+              {/* Date Period Options (Scheduled posting & Expiration date) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#f8fafc] p-3.5 rounded-2xl border border-[#e2e8f0]">
+                <div>
+                  <label className="block text-[12px] font-bold text-[#4e5968] mb-1 flex items-center gap-1">
+                    <CalendarIcon className="w-3.5 h-3.5 text-[#10b981]" />
+                    게시 시작일 (예약 게시)
+                  </label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-[#cbd5e1] focus:border-[#10b981] rounded-xl text-[12.5px] outline-none font-semibold text-[#191f28]"
+                  />
+                  <span className="text-[11px] text-[#8b95a1] mt-0.5 block">비워두면 작성 즉시 게시됩니다.</span>
+                </div>
+                <div>
+                  <label className="block text-[12px] font-bold text-[#4e5968] mb-1 flex items-center gap-1">
+                    <CalendarIcon className="w-3.5 h-3.5 text-[#f04452]" />
+                    게시 종료일 (자동 마감/삭제)
+                  </label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-[#cbd5e1] focus:border-[#f04452] rounded-xl text-[12.5px] outline-none font-semibold text-[#191f28]"
+                  />
+                  <span className="text-[11px] text-[#8b95a1] mt-0.5 block">해당 날짜가 지나면 자동으로 숨겨집니다.</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end items-center gap-2 pt-1">
                   <label className="flex-1 sm:flex-none flex items-center justify-center gap-2 cursor-pointer text-[14px] font-bold text-[#4e5968] bg-[#f2f4f6] px-4 py-3 rounded-xl hover:bg-[#e5e8eb] transition-colors">
                     <input
                       type="checkbox"
@@ -277,7 +333,6 @@ export function Notices() {
                     공지 등록
                   </button>
                 </div>
-              </div>
             </form>
           )}
 
@@ -293,10 +348,20 @@ export function Notices() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2.5 mb-3">
+                    <div className="flex items-center gap-2 mb-3 flex-wrap">
                       {notice.isImportant && (
                         <span className="flex items-center gap-1 text-[12.5px] font-extrabold text-[#f04452] bg-[#f04452]/10 px-2.5 py-0.5 rounded-md border border-[#f5d0d0]">
                           <Pin className="w-3.5 h-3.5" /> 필독
+                        </span>
+                      )}
+                      {notice.startDate && todayStr < notice.startDate && (
+                        <span className="flex items-center gap-1 text-[12px] font-extrabold text-[#2563eb] bg-[#eff6ff] px-2.5 py-0.5 rounded-md border border-[#bfdbfe]">
+                          <CalendarIcon className="w-3.5 h-3.5" /> {notice.startDate} 게시 예정 (예약)
+                        </span>
+                      )}
+                      {notice.endDate && (
+                        <span className="flex items-center gap-1 text-[12px] font-bold text-[#475569] bg-[#f1f5f9] px-2.5 py-0.5 rounded-md border border-[#cbd5e1]">
+                          <CalendarIcon className="w-3.5 h-3.5 text-[#f04452]" /> ~ {notice.endDate} 마감 예정
                         </span>
                       )}
                       <h3 className="text-[18px] font-bold text-[#191f28] leading-snug">{notice.title}</h3>

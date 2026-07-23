@@ -30,14 +30,16 @@ service cloud.firestore {
 
     function isValidNotice(data) {
       return data.keys().hasAll(['title', 'content', 'authorId', 'authorName', 'isImportant', 'createdAt']) &&
-             data.keys().hasOnly(['title', 'content', 'authorId', 'authorName', 'isImportant', 'createdAt', 'imageUrl']) &&
+             data.keys().hasOnly(['title', 'content', 'authorId', 'authorName', 'isImportant', 'createdAt', 'imageUrl', 'startDate', 'endDate']) &&
              data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
              data.content is string && data.content.size() > 0 && data.content.size() < 50000 &&
              data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
              data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
              data.isImportant is bool &&
              data.createdAt is timestamp &&
-             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 1000));
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 1000)) &&
+             (!('startDate' in data) || (data.startDate is string && data.startDate.size() < 50)) &&
+             (!('endDate' in data) || (data.endDate is string && data.endDate.size() < 50));
     }
 
     function isValidEvent(data) {
