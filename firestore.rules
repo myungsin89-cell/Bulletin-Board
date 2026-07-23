@@ -56,14 +56,16 @@ service cloud.firestore {
 
     function isValidOpinion(data) {
       return data.keys().hasAll(['title', 'description', 'authorId', 'authorName', 'options', 'votes', 'createdAt']) &&
-             data.keys().hasOnly(['title', 'description', 'authorId', 'authorName', 'options', 'votes', 'createdAt']) &&
+             data.keys().hasOnly(['title', 'description', 'authorId', 'authorName', 'options', 'votes', 'createdAt', 'type', 'isAnonymous', 'endDate']) &&
              data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
              data.description is string && data.description.size() >= 0 && data.description.size() < 5000 &&
              data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
              data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
-             data.options is list && data.options.size() > 0 && data.options.size() <= 10 &&
+             data.options is list && data.options.size() > 0 && data.options.size() <= 30 &&
              data.votes is map &&
-             data.createdAt is timestamp;
+             (!('type' in data) || (data.type is string && data.type.size() < 50)) &&
+             (!('isAnonymous' in data) || data.isAnonymous is bool) &&
+             (!('endDate' in data) || (data.endDate is string && data.endDate.size() < 50));
     }
 
     function isValidReservation(data) {

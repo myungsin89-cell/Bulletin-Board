@@ -124,9 +124,10 @@ export function Notices() {
     };
 
     const processOpinions = (opList: any[]) => {
-      // Filter out opinions where current user has already voted
+      // Filter out opinions where current user has already voted or opinion is expired
       const notVotedYet = opList.filter(op => {
         if (!op) return false;
+        if (op.endDate && todayStr > op.endDate) return false;
         const votes = op.votes || {};
         const myUid = profile.uid;
         const myName = profile.displayName;

@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { collatorService, TeacherProfile } from '../utils/collatorService';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { MessageSquare, Trash2, Plus, CheckCircle2, Lock, Eye, UserCheck, Sparkles, Check, BarChart2, X } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, CheckCircle2, Lock, Eye, UserCheck, Sparkles, Check, BarChart2, X, Calendar, AlertTriangle } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface Opinion {
@@ -18,6 +18,7 @@ interface Opinion {
   votes: Record<string, number>;
   type?: 'general' | 'candidate';
   isAnonymous?: boolean;
+  endDate?: string;
   createdAt: any;
 }
 
@@ -53,6 +54,7 @@ export function Opinions() {
   const [description, setDescription] = useState('');
   const [voteType, setVoteType] = useState<'general' | 'candidate'>('general');
   const [isAnonymous, setIsAnonymous] = useState<boolean>(false);
+  const [endDate, setEndDate] = useState<string>('');
   const [generalOptions, setGeneralOptions] = useState<string[]>(['찬성 (동의)', '반대 (미동의)']);
 
   // Registered teachers list from Collator Service
@@ -197,6 +199,7 @@ export function Opinions() {
       options: finalOptions,
       type: voteType,
       isAnonymous,
+      endDate: endDate || undefined,
       votes: {},
       createdAt: Date.now()
     };
@@ -213,6 +216,7 @@ export function Opinions() {
     setDescription('');
     setVoteType('general');
     setIsAnonymous(false);
+    setEndDate('');
     setGeneralOptions(['찬성 (동의)', '반대 (미동의)']);
 
     // Attempt Remote Firestore Save
@@ -226,6 +230,7 @@ export function Opinions() {
           options: newOpinionObj.options,
           type: newOpinionObj.type,
           isAnonymous: newOpinionObj.isAnonymous,
+          ...(newOpinionObj.endDate ? { endDate: newOpinionObj.endDate } : {}),
           votes: {},
           createdAt: serverTimestamp()
         });
@@ -256,6 +261,12 @@ export function Opinions() {
     const voterUid = profile?.uid || 'anonymous_voter';
     const opinion = opinions.find(o => o.id === opinionId);
     if (!opinion) return;
+
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    if (opinion.endDate && todayStr > opinion.endDate) {
+      alert('마감된 투표에는 참여하거나 변경할 수 없습니다.');
+      return;
+    }
 
     const newVotes = { ...(opinion.votes || {}) };
     if (newVotes[voterUid] === optionIndex) {
@@ -420,6 +431,23 @@ export function Opinions() {
                 </div>
               </div>
 
+              {/* End Date Picker Section */}
+              <div className="bg-[#f8fafc] p-4 rounded-2xl border border-[#e2e8f0] space-y-1.5">
+                <label className="block text-[13.5px] font-bold text-[#191f28] flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-[#10b981]" />
+                  🗓️ 투표 마감일 지정 (선택사항)
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#e2e8f0] focus:border-[#10b981] rounded-xl text-[13.5px] font-bold text-[#191f28] outline-none transition-all"
+                />
+                <span className="text-[11.5px] text-[#8b95a1] block">
+                  지정한 날짜의 23:59 이후 자동으로 투표가 마감됩니다. (미입력 시 상시 투표 가능)
+                </span>
+              </div>
+
               {voteType === 'candidate' ? (
                 <div className="space-y-3 pt-2">
                   <div className="flex justify-between items-center">
@@ -538,6 +566,9 @@ export function Opinions() {
           const isCandidateType = opinion.type === 'candidate';
           const isAnon = !!opinion.isAnonymous;
 
+          const todayStr = format(new Date(), 'yyyy-MM-dd');
+          const isExpired = opinion.endDate ? todayStr > opinion.endDate : false;
+
           return (
             <div key={opinion.id} className="bg-white p-6 sm:p-7 rounded-[24px] shadow-[0_2px_20px_rgba(0,0,0,0.02)] border border-[#f2f4f6] flex flex-col h-full transition-all">
               {/* Card Header & Badges */}
@@ -563,6 +594,27 @@ export function Opinions() {
                       {isAnon ? <Lock className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                       {isAnon ? '비공개 (익명)' : '공개 투표'}
                     </span>
+
+                    {opinion.endDate && (
+                      <span className={cn(
+                        "text-[11.5px] font-extrabold px-2.5 py-0.5 rounded-md border flex items-center gap-1",
+                        isExpired 
+                          ? "bg-[#fffbeb] text-[#d97706] border-[#fef3c7]" 
+                          : "bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]"
+                      )}>
+                        {isExpired ? (
+                          <>
+                            <AlertTriangle className="w-3 h-3 text-[#d97706]" />
+                            ~ {opinion.endDate} 마감됨
+                          </>
+                        ) : (
+                          <>
+                            <Calendar className="w-3 h-3 text-[#10b981]" />
+                            ~ {opinion.endDate} 마감 예정
+                          </>
+                        )}
+                      </span>
+                    )}
                   </div>
 
                   <h3 className="text-[18px] font-bold text-[#191f28] leading-snug">{opinion.title}</h3>
