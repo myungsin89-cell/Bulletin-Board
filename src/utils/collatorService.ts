@@ -184,39 +184,79 @@ export class CollatorService {
       if (data) {
         const rawTeachers: TeacherProfile[] = Object.entries(data).map(([key, val]: [string, any]) => {
           const lastActive = val.lastActive || 0;
-          // Mark offline if inactive for more than 10 minutes
-          const isStale = Date.now() - lastActive > 10 * 60 * 1000;
+          // Mark offline if inactive for more than 5 minutes
+          const isStale = Date.now() - lastActive > 5 * 60 * 1000;
           return {
             id: val.id || key,
-            name: val.name || '알 수 없는 사용자',
+            name: val.name || '선생님',
             role: val.role || '선생님',
             ...val,
             online: isStale ? false : (val.online !== false)
           };
         });
 
-        // 🌟 Smart Class-based & Name Deduplication:
-        // Keep only the most recently active profile for each class (e.g. "2반") or full teacher name
-        const teacherMap = new Map<string, TeacherProfile>();
+        // 🌟 Normalization Key Helper: Group by class (e.g. "4반") or clean name
+        const getNormalizedKey = (name: string, id: string) => {
+          if (!name) return id;
+          const clean = name.trim().replace(/\s+/g, '');
+          const classMatch = clean.match(/(\d+반)/);
+          if (classMatch) {
+            return `class_${classMatch[1]}`;
+          }
+          return `name_${clean}`;
+        };
 
-        // Sort by lastActive ascending so newer entry overwrites older entry
-        rawTeachers.sort((a, b) => (a.lastActive || 0) - (b.lastActive || 0));
+        // 🌟 Sort: 1st priority = online (true > false), 2nd priority = lastActive (newest first)
+        rawTeachers.sort((a, b) => {
+          const aOnline = a.online ? 1 : 0;
+          const bOnline = b.online ? 1 : 0;
+          if (aOnline !== bOnline) return bOnline - aOnline;
+          return (b.lastActive || 0) - (a.lastActive || 0);
+        });
+
+        const teacherMap = new Map<string, TeacherProfile>();
+        const staleIdsToRemove: string[] = [];
 
         rawTeachers.forEach(t => {
-          const trimmedName = t.name ? t.name.trim() : '';
-          const match = trimmedName.match(/^(\d+반)/);
-          const key = match ? match[1] : (trimmedName || t.id);
-
-          teacherMap.set(key, t); // Overwrites older record for same teacher/class automatically!
+          const key = getNormalizedKey(t.name, t.id);
+          if (!teacherMap.has(key)) {
+            teacherMap.set(key, t);
+          } else {
+            // If we already have an active/online session, clean up offline stale ghost nodes from RTDB
+            if (!t.online && this.db && t.id !== myId) {
+              staleIdsToRemove.push(t.id);
+            }
+          }
         });
+
+        // Asynchronously remove stale ghost nodes from Firebase RTDB
+        if (staleIdsToRemove.length > 0 && this.db) {
+          staleIdsToRemove.forEach(staleId => {
+            try {
+              remove(ref(this.db!, `teachers/${staleId}`));
+            } catch (e) {}
+          });
+        }
 
         const list = Array.from(teacherMap.values());
 
         // Always guarantee current user is marked online in local list
         let selfFound = false;
+        const myNameClean = this.myProfile?.name ? this.myProfile.name.trim().replace(/\s+/g, '') : '';
+        const myClassMatch = myNameClean.match(/(\d+반)/);
+
         list.forEach(t => {
-          if (t.id === myId || (t.name && t.name.trim() === this.myProfile?.name.trim())) {
+          const tNameClean = t.name ? t.name.trim().replace(/\s+/g, '') : '';
+          const tClassMatch = tNameClean.match(/(\d+반)/);
+
+          const isMatch = t.id === myId || 
+                          (myClassMatch && tClassMatch && myClassMatch[1] === tClassMatch[1]) ||
+                          (myNameClean && tNameClean && myNameClean === tNameClean);
+
+          if (isMatch) {
             t.online = true;
+            t.id = myId; // Ensure current user ID matches
+            t.name = this.myProfile?.name || t.name;
             selfFound = true;
           }
         });
