@@ -4,7 +4,7 @@ import { collatorService, TeacherProfile, CollectionRoom, SubmissionItem, Custom
 import { CollatorTeacherGrid } from '../components/CollatorTeacherGrid';
 import { 
   Plus, Folder, Trash2, ExternalLink, FileUp, 
-  Users, CheckCircle2, AlertCircle, RefreshCw, X, FolderOpen, Shield, DownloadCloud, UserCheck, Star, AlertTriangle
+  Users, CheckCircle2, AlertCircle, RefreshCw, X, FolderOpen, Shield, DownloadCloud, UserCheck, Star, AlertTriangle, FlaskConical
 } from 'lucide-react';
 
 export function Collator() {
@@ -204,9 +204,13 @@ export function Collator() {
   return (
     <div className="space-y-6 font-sans max-w-5xl mx-auto">
       <div className="flex items-center justify-between py-1">
-        <h2 className="text-[19px] font-bold text-[#191f28] flex items-center gap-2">
+        <h2 className="text-[19px] font-bold text-[#191f28] flex items-center gap-2 flex-wrap">
           <DownloadCloud className="w-5.5 h-5.5 text-[#10b981]" />
-          실시간 파일 취합 도우미
+          <span>실시간 파일 취합 도우미</span>
+          <span className="text-[12px] font-bold bg-[#fffbeb] text-[#d97706] px-2.5 py-0.5 rounded-full border border-[#fde68a] flex items-center gap-1.5 shadow-2xs">
+            <FlaskConical className="w-3.5 h-3.5 text-[#d97706] stroke-[2.2]" />
+            이 기능은 실험 단계입니다
+          </span>
         </h2>
         {/* Action Buttons */}
         <div className="flex gap-2">

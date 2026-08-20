@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { db, firebaseConfig } from '../firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
-import { Calendar, MessageSquare, Bell, CalendarDays, LogOut, BookOpen, Shield, FolderDown, Settings, RotateCcw, FileSpreadsheet, Copy, Check, Key } from 'lucide-react';
+import { Calendar, MessageSquare, Bell, CalendarDays, LogOut, BookOpen, Shield, FolderDown, Settings, RotateCcw, FileSpreadsheet, Copy, Check, Key, FlaskConical } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 const getSchoolCode = () => {
@@ -29,8 +29,8 @@ const navItems = [
   { name: '학년 달력', href: '/calendar', icon: CalendarDays },
   { name: '의견', href: '/opinions', icon: MessageSquare },
   { name: '예약', href: '/reservations', icon: Calendar },
-  { name: '취합', href: '/collator', icon: FolderDown },
   { name: '정보창고', href: '/sheets', icon: FileSpreadsheet },
+  { name: '취합', href: '/collator', icon: FolderDown, isExperimental: true },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -139,13 +139,19 @@ export function Layout({ children }: { children: ReactNode }) {
                       key={item.name}
                       to={item.href}
                       className={cn(
-                        "px-4 py-2 rounded-xl text-[14.5px] font-bold transition-all",
+                        "px-4 py-2 rounded-xl text-[14.5px] font-bold transition-all flex items-center gap-1.5",
                         isActive 
                           ? "text-[#10b981] bg-[#ecfdf5] shadow-2xs" 
                           : "text-[#4e5968] hover:bg-[#f8fafc] hover:text-[#191f28]"
                       )}
                     >
-                      {item.name}
+                      <span>{item.name}</span>
+                      {item.isExperimental && (
+                        <FlaskConical className={cn(
+                          "w-3.5 h-3.5 stroke-[2.2]",
+                          isActive ? "text-[#10b981]" : "text-[#d97706]"
+                        )} title="실험 단계" />
+                      )}
                     </Link>
                   );
                 })}
@@ -197,8 +203,9 @@ export function Layout({ children }: { children: ReactNode }) {
                 )}
               >
                 <Icon className={cn("w-5.5 h-5.5", isActive ? "text-[#191f28]" : "text-[#b0b8c1]")} />
-                <span className={cn("text-[9px] font-semibold", isActive ? "text-[#191f28]" : "text-[#8b95a1]")}>
+                <span className={cn("text-[9px] font-semibold flex items-center gap-0.5", isActive ? "text-[#191f28]" : "text-[#8b95a1]")}>
                   {item.name}
+                  {item.isExperimental && <FlaskConical className="w-2.5 h-2.5 text-[#d97706] stroke-[2.5]" />}
                 </span>
               </Link>
             );

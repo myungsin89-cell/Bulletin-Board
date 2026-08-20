@@ -15,11 +15,11 @@ interface SheetCard {
   id: string;
   title: string;
   description: string;
-  type?: 'sheet' | 'memo';
+  type?: 'sheet' | 'memo' | 'external_sheet' | 'link';
   content?: string;
   sheetUrl?: string;
   gid?: string;
-  category: 'password' | 'equipment' | 'tips' | 'duty' | 'general';
+  category: 'password' | 'equipment' | 'tips' | 'duty' | 'general' | 'link';
   authorId: string;
   authorName: string;
   createdAt: any;
@@ -115,12 +115,22 @@ export function SheetsRepository() {
   };
 
   // New Card Form States
-  const [newType, setNewType] = useState<'sheet' | 'memo'>('memo');
+  const [newType, setNewType] = useState<'sheet' | 'memo' | 'link'>('memo');
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newContent, setNewContent] = useState('');
+  const [newUrl, setNewUrl] = useState('');
   const [newCategory, setNewCategory] = useState<SheetCard['category']>('general');
   const [newIsImportant, setNewIsImportant] = useState(false);
+
+  const resetForm = () => {
+    setNewTitle('');
+    setNewDescription('');
+    setNewContent('');
+    setNewUrl('');
+    setNewCategory('general');
+    setNewIsImportant(false);
+  };
 
   // Active Memo Viewer/Editor Modal State
   const [activeMemoCard, setActiveMemoCard] = useState<SheetCard | null>(null);
@@ -182,12 +192,12 @@ export function SheetsRepository() {
     setIsSettingOpen(false);
   };
 
-  // Handle Add New Card (Support Sheet & Memo)
+  // Handle Add New Card (Support Sheet, Memo, Link)
   const handleCreateCard = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return showAlert('입력 오류', '카드 제목을 입력하세요.', 'warning');
 
-    // 1. 앱내 스마트 메모 카인 경우
+    // 1. 앱내 스마트 메모 카드인 경우
     if (newType === 'memo') {
       const newCard: SheetCard = {
         id: 'sc_' + Date.now(),
@@ -209,11 +219,7 @@ export function SheetsRepository() {
       });
 
       setIsComposing(false);
-      setNewTitle('');
-      setNewDescription('');
-      setNewContent('');
-      setNewCategory('general');
-      setNewIsImportant(false);
+      resetForm();
       showAlert('생성 완료', '앱내 스마트 메모 카드가 성공적으로 생성되었습니다!', 'success');
 
       try {
@@ -229,34 +235,26 @@ export function SheetsRepository() {
       return;
     }
 
-    // 2. 구글 시트 연동 카인 경우
-    if (!gasWebAppUrl) {
-      showAlert('연동 설정 필요', '설정에서 구글 앱스크립트(GAS) 연동 URL을 먼저 등록해주세요.', 'warning');
-      setIsSettingOpen(true);
-      return;
-    }
+    // 2. 외부 사이트 / 웹 링크 카드인 경우
+    if (newType === 'link') {
+      if (!newUrl.trim()) return showAlert('입력 오류', '사이트 URL 주소를 입력하세요.', 'warning');
 
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(`${gasWebAppUrl}?title=${encodeURIComponent(newTitle.trim())}`);
-      const data = await response.json();
-
-      if (data.status !== 'success') {
-        throw new Error(data.message || '탭 생성에 실패했습니다.');
+      let targetUrl = newUrl.trim();
+      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+        targetUrl = 'https://' + targetUrl;
       }
 
       const newCard: SheetCard = {
         id: 'sc_' + Date.now(),
         title: newTitle.trim(),
         description: newDescription.trim(),
-        type: 'sheet',
-        sheetUrl: data.url,
-        gid: String(data.gid),
-        category: newCategory,
+        type: 'link',
+        sheetUrl: targetUrl,
+        category: newCategory === 'general' ? 'link' : newCategory,
         authorId: profile?.uid || 'user',
         authorName: profile?.displayName || '선생님',
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        isImportant: newIsImportant
       };
 
       setCards(prev => {
@@ -266,11 +264,9 @@ export function SheetsRepository() {
       });
 
       setIsComposing(false);
-      setNewTitle('');
-      setNewDescription('');
-      setNewCategory('general');
+      resetForm();
+      showAlert('등록 완료', '외부 사이트 링크 카드가 추가되었습니다!', 'success');
 
-      // Attempt Remote Sync
       try {
         if (db) {
           await addDoc(collection(db, 'sheet_cards'), {
@@ -279,27 +275,127 @@ export function SheetsRepository() {
           });
         }
       } catch (e) {
-        console.warn('Remote sheet_cards add fallback to local:', e);
+        console.warn('Remote link card add fallback:', e);
       }
-    } catch (err) {
-      console.error(err);
-      showAlert('생성 오류', '구글 시트 탭 생성 중 오류가 발생했습니다: ' + (err as Error).message, 'error');
-    } finally {
-      setIsLoading(false);
+      return;
+    }
+
+    // 3. 구글 시트 카드인 경우 (URL 입력 시 기존 시트 연결, 비워두면 새 탭 자동 개설)
+    if (newType === 'sheet') {
+      if (newUrl.trim()) {
+        let targetUrl = newUrl.trim();
+        if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+          targetUrl = 'https://' + targetUrl;
+        }
+
+        const newCard: SheetCard = {
+          id: 'sc_' + Date.now(),
+          title: newTitle.trim(),
+          description: newDescription.trim(),
+          type: 'external_sheet',
+          sheetUrl: targetUrl,
+          category: newCategory,
+          authorId: profile?.uid || 'user',
+          authorName: profile?.displayName || '선생님',
+          createdAt: Date.now(),
+          isImportant: newIsImportant
+        };
+
+        setCards(prev => {
+          const updated = [newCard, ...prev];
+          saveCardsLocal(updated);
+          return updated;
+        });
+
+        setIsComposing(false);
+        resetForm();
+        showAlert('연결 완료', '기존 구글 시트 링크 카드가 성공적으로 등록되었습니다!', 'success');
+
+        try {
+          if (db) {
+            await addDoc(collection(db, 'sheet_cards'), {
+              ...newCard,
+              createdAt: serverTimestamp()
+            });
+          }
+        } catch (e) {
+          console.warn('Remote external sheet card add fallback:', e);
+        }
+        return;
+      }
+
+      // URL이 비어있는 경우 -> 동학년 대표 구글 시트에 새 탭 자동 생성
+      if (!gasWebAppUrl) {
+        showAlert('연동 설정 필요', '대표 구글 시트에 탭을 자동 생성하려면 설정에서 구글 앱스크립트(GAS) 연동 URL을 먼저 등록해주세요.', 'warning');
+        setIsSettingOpen(true);
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const response = await fetch(`${gasWebAppUrl}?title=${encodeURIComponent(newTitle.trim())}`);
+        const data = await response.json();
+
+        if (data.status !== 'success') {
+          throw new Error(data.message || '탭 생성에 실패했습니다.');
+        }
+
+        const newCard: SheetCard = {
+          id: 'sc_' + Date.now(),
+          title: newTitle.trim(),
+          description: newDescription.trim(),
+          type: 'sheet',
+          sheetUrl: data.url,
+          gid: String(data.gid),
+          category: newCategory,
+          authorId: profile?.uid || 'user',
+          authorName: profile?.displayName || '선생님',
+          createdAt: Date.now(),
+          isImportant: newIsImportant
+        };
+
+        setCards(prev => {
+          const updated = [newCard, ...prev];
+          saveCardsLocal(updated);
+          return updated;
+        });
+
+        setIsComposing(false);
+        resetForm();
+        showAlert('생성 완료', '대표 구글 시트에 새 탭이 자동 생성되고 카드가 등록되었습니다!', 'success');
+
+        try {
+          if (db) {
+            await addDoc(collection(db, 'sheet_cards'), {
+              ...newCard,
+              createdAt: serverTimestamp()
+            });
+          }
+        } catch (e) {
+          console.warn('Remote sheet_cards add fallback to local:', e);
+        }
+      } catch (err) {
+        console.error(err);
+        showAlert('생성 오류', '구글 시트 탭 생성 중 오류가 발생했습니다: ' + (err as Error).message, 'error');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
     }
   };
 
-  // Handle Delete Card (with GAS tab deletion)
+  // Handle Delete Card (with GAS tab deletion for auto-generated sheet tabs)
   const handleDeleteCard = async (id: string) => {
     const cardToDelete = cards.find(c => c.id === id);
     if (!cardToDelete) return;
 
-    const isMemo = cardToDelete.type === 'memo';
+    const isAutoSheet = cardToDelete.type === 'sheet' && !!cardToDelete.gid;
     const targetGid = cardToDelete.gid || cardToDelete.sheetUrl?.match(/[#&?]gid=([0-9]+)/)?.[1];
     let gasDeleteSuccess = true;
 
-    // Delete the corresponding Google Sheet tab via GAS
-    if (!isMemo && targetGid && gasWebAppUrl) {
+    // Delete corresponding Google Sheet tab via GAS ONLY IF it's an auto-generated sheet tab
+    if (isAutoSheet && targetGid && gasWebAppUrl) {
       try {
         const res = await fetch(`${gasWebAppUrl}?action=delete&gid=${targetGid}`);
         const resData = await res.json();
@@ -309,11 +405,10 @@ export function SheetsRepository() {
         } else if (resData.status === 'not_found') {
           showAlert('안내', '구글 시트에 해당 탭이 없거나 이미 삭제된 상태입니다. 연결 카드만 삭제합니다.', 'info');
         } else if (resData.status === 'error') {
-          showAlert('삭제 실패', '구글 시트 탭 삭제에 실패했습니다: ' + (resData.message || '알 수 없는 오류') + '\\n(마지막 남은 탭은 구글 정책상 삭제할 수 없습니다.)', 'error');
+          showAlert('삭제 실패', '구글 시트 탭 삭제에 실패했습니다: ' + (resData.message || '알 수 없는 오류') + '\n(마지막 남은 탭은 구글 정책상 삭제할 수 없습니다.)', 'error');
           gasDeleteSuccess = false;
         } else if (resData.status === 'success') {
           showAlert('코드 업데이트 필요', '구글 시트 앱스크립트가 옛날 버전입니다! [apps_script_guide.md]의 최신 코드를 붙여넣고 [새 버전]으로 다시 배포해 주세요.', 'warning');
-          // We allow deletion here because old script might have succeeded but returned legacy success message
         } else {
           showAlert('결과 안내', '구글 시트 탭 삭제 결과: ' + JSON.stringify(resData), 'info');
         }
@@ -322,14 +417,12 @@ export function SheetsRepository() {
         showAlert('오류 발생', '구글 시트 탭 삭제 중 네트워크/서버 오류가 발생했습니다: ' + (e as Error).message, 'error');
         gasDeleteSuccess = false;
       }
-    } else if (!isMemo && !gasWebAppUrl) {
-      showAlert('경고', '앱스크립트(GAS) URL이 설정되지 않아 구글 시트 탭은 삭제되지 않고 연결 카드만 삭제됩니다.', 'warning');
     }
 
     if (!gasDeleteSuccess) {
       setDeleteConfirmId(null);
       setSelectedCard(null);
-      return; // Abort deleting from UI/Firestore so user can try again
+      return;
     }
 
     // Proceed with UI and Firestore deletion
@@ -449,6 +542,8 @@ export function SheetsRepository() {
         return { text: '동학년 꿀팁', color: 'bg-[#fef3c7] text-[#d97706] border-[#fde68a]', icon: Lightbulb };
       case 'duty':
         return { text: '역할분담', color: 'bg-[#f3e8ff] text-[#7e22ce] border-[#e9d5ff]', icon: Users };
+      case 'link':
+        return { text: '사이트/링크', color: 'bg-[#e0e7ff] text-[#4338ca] border-[#c7d2fe]', icon: Globe };
       default:
         return { text: '일반정보', color: 'bg-[#f2f4f6] text-[#4e5968] border-[#e5e8eb]', icon: FileSpreadsheet };
     }
@@ -496,6 +591,7 @@ export function SheetsRepository() {
             { id: 'equipment', label: '📦 비품 위치' },
             { id: 'tips', label: '💡 꿀팁/생기부' },
             { id: 'duty', label: '🍱 역할 분담' },
+            { id: 'link', label: '🌐 사이트/외부링크' },
             { id: 'general', label: '📑 일반' },
           ].map((cat) => (
             <button
@@ -545,33 +641,46 @@ export function SheetsRepository() {
             </div>
 
             <form onSubmit={handleCreateCard} className="space-y-4 pt-1">
-              {/* Card Type Selector */}
-              <div className="flex items-center gap-2 p-1.5 bg-[#f2f4f6] rounded-2xl">
+              {/* Card Type Selector (3 Unified Types) */}
+              <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-[#f2f4f6] rounded-2xl">
                 <button
                   type="button"
                   onClick={() => setNewType('memo')}
                   className={cn(
-                    "flex-1 py-2.5 px-4 rounded-xl font-bold text-[13.5px] transition-all flex items-center justify-center gap-2",
+                    "py-2.5 px-2 rounded-xl font-bold text-[13px] transition-all flex items-center justify-center gap-1.5",
                     newType === 'memo'
                       ? "bg-white text-[#3b82f6] shadow-xs"
                       : "text-[#64748b] hover:text-[#191f28]"
                   )}
                 >
-                  <Sparkles className="w-4 h-4 text-[#3b82f6]" />
-                  📝 스마트 메모 (앱내 저장)
+                  <Sparkles className="w-4 h-4 text-[#3b82f6] shrink-0" />
+                  <span>스마트 메모</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setNewType('sheet')}
                   className={cn(
-                    "flex-1 py-2.5 px-4 rounded-xl font-bold text-[13.5px] transition-all flex items-center justify-center gap-2",
+                    "py-2.5 px-2 rounded-xl font-bold text-[13px] transition-all flex items-center justify-center gap-1.5",
                     newType === 'sheet'
                       ? "bg-white text-[#10b981] shadow-xs"
                       : "text-[#64748b] hover:text-[#191f28]"
                   )}
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-[#10b981]" />
-                  📊 구글 시트 연동 카드
+                  <FileSpreadsheet className="w-4 h-4 text-[#10b981] shrink-0" />
+                  <span>구글 시트 연결</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewType('link')}
+                  className={cn(
+                    "py-2.5 px-2 rounded-xl font-bold text-[13px] transition-all flex items-center justify-center gap-1.5",
+                    newType === 'link'
+                      ? "bg-white text-[#6366f1] shadow-xs"
+                      : "text-[#64748b] hover:text-[#191f28]"
+                  )}
+                >
+                  <Globe className="w-4 h-4 text-[#6366f1] shrink-0" />
+                  <span>사이트 링크</span>
                 </button>
               </div>
 
@@ -579,13 +688,60 @@ export function SheetsRepository() {
                 <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">카드 제목</label>
                 <input
                   type="text"
-                  placeholder={newType === 'memo' ? "예: 💻 교실 무선 와이파이 & 비번" : "예: 🍱 급식 지도 및 학예회 역할 분담표"}
+                  placeholder={
+                    newType === 'memo' ? "예: 💻 교실 무선 와이파이 & 비번" :
+                    newType === 'sheet' ? "예: 🍱 급식 지도표 / 📊 4학년 공동 관찰록" :
+                    "예: 🏫 우리 학교 홈페이지 / 📋 학생 설문 구글 폼"
+                  }
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   className="w-full text-[16px] font-bold px-4 py-3 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] transition-colors placeholder-[#b0b8c1] text-[#191f28]"
                   required
                 />
               </div>
+
+              {/* URL Input for Google Sheet Option */}
+              {newType === 'sheet' && (
+                <div>
+                  <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5 flex items-center justify-between">
+                    <span>구글 시트 URL 주소 <span className="text-[#8b95a1] font-normal text-[12px]">(선택 사항)</span></span>
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://docs.google.com/spreadsheets/d/... (비워둘 시 새 탭 자동 생성)"
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                    className="w-full px-4 py-3 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#10b981] text-[#191f28] text-[13.5px] font-mono placeholder-[#b0b8c1]"
+                  />
+                  <div className="mt-2.5 p-3 bg-[#f8fafc] rounded-xl border border-[#e2e8f0] space-y-1.5 text-[12.5px]">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md bg-[#e2e8f0] text-[#334155] font-bold text-[11.5px] shrink-0">주소 입력</span>
+                      <span className="text-[#475569]">해당 구글 시트로 바로 연결됩니다.</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md bg-[#dcfce7] text-[#15803d] font-bold text-[11.5px] shrink-0">주소 미입력</span>
+                      <span className="text-[#166534] font-medium">대표 동학년 시트에 <b>새 탭이 자동 생성</b>됩니다.</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* URL Input for External Website Link Option */}
+              {newType === 'link' && (
+                <div>
+                  <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">
+                    웹사이트 / 사이트 링크 URL 주소
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://www.example.com 또는 https://forms.google.com/..."
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                    className="w-full px-4 py-3 bg-[#f2f4f6] border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6366f1] text-[#191f28] text-[13.5px] font-mono placeholder-[#b0b8c1]"
+                    required
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-[13.5px] font-bold text-[#4e5968] mb-1.5">카드의 간단한 한 줄 요약 (선택사항)</label>
@@ -622,6 +778,7 @@ export function SheetsRepository() {
                     <option value="equipment">📦 비품/위치</option>
                     <option value="tips">💡 동학년 꿀팁</option>
                     <option value="duty">🍱 역할 분담</option>
+                    <option value="link">🌐 사이트/외부링크</option>
                     <option value="general">📑 일반 정보</option>
                   </select>
                 </div>
@@ -655,10 +812,12 @@ export function SheetsRepository() {
                   disabled={isLoading}
                   className={cn(
                     "text-white px-6 py-2.5 rounded-xl font-bold active:scale-95 transition-all text-[14px] disabled:opacity-50 flex items-center gap-2 shadow-sm",
-                    newType === 'memo' ? "bg-[#3b82f6] hover:bg-[#2563eb]" : "bg-[#10b981] hover:bg-[#059669]"
+                    newType === 'memo' ? "bg-[#3b82f6] hover:bg-[#2563eb]" :
+                    newType === 'link' ? "bg-[#6366f1] hover:bg-[#4f46e5]" :
+                    "bg-[#10b981] hover:bg-[#059669]"
                   )}
                 >
-                  {isLoading ? '구글 시트 탭 생성 중...' : (newType === 'memo' ? '스마트 메모 카드 만들기' : '구글 시트 연동 카드 만들기')}
+                  {isLoading ? '구글 시트 탭 생성 중...' : '카드 만들기'}
                 </button>
               </div>
             </form>
@@ -721,9 +880,9 @@ export function SheetsRepository() {
                   <div className="flex items-center gap-1.5">
                     <span className={cn(
                       "text-[12px] font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5",
-                      isMemo ? "text-[#3b82f6]" : "text-[#10b981]"
+                      isMemo ? "text-[#3b82f6]" : card.type === 'link' ? "text-[#6366f1]" : "text-[#10b981]"
                     )}>
-                      {isMemo ? '메모 열기' : '시트 열기'} <ExternalLink className="w-3.5 h-3.5" />
+                      {isMemo ? '메모 열기' : card.type === 'link' ? '사이트 접속' : '시트 열기'} <ExternalLink className="w-3.5 h-3.5" />
                     </span>
 
                     {/* Pin/Unpin Toggle Button */}
@@ -772,7 +931,11 @@ export function SheetsRepository() {
                 </h3>
 
                 <p className="text-[14.5px] text-[#4e5968] leading-relaxed line-clamp-2 mb-4 whitespace-pre-wrap">
-                  {card.description || card.content || (isMemo ? '클릭하면 앱 내부에서 메모를 읽고 바로 편집할 수 있습니다.' : '클릭하면 크롬 브라우저에서 해당 구글 시트 탭이 열립니다.')}
+                  {card.description || card.content || (
+                    isMemo ? '클릭하면 앱 내부에서 메모를 읽고 바로 편집할 수 있습니다.' :
+                    card.type === 'link' ? '클릭하면 브라우저에서 해당 웹사이트로 바로 이동합니다.' :
+                    '클릭하면 크롬 브라우저에서 해당 구글 시트 탭이 열립니다.'
+                  )}
                 </p>
               </div>
 
@@ -782,6 +945,16 @@ export function SheetsRepository() {
                   <span className="flex items-center gap-1 text-[#1d4ed8] bg-[#eff6ff] px-2.5 py-1 rounded-lg border border-[#bfdbfe] font-bold">
                     <Sparkles className="w-3.5 h-3.5 text-[#3b82f6]" />
                     앱내 스마트 메모
+                  </span>
+                ) : card.type === 'link' ? (
+                  <span className="flex items-center gap-1 text-[#4338ca] bg-[#e0e7ff] px-2.5 py-1 rounded-lg border border-[#c7d2fe] font-bold">
+                    <Globe className="w-3.5 h-3.5 text-[#6366f1]" />
+                    외부 사이트 링크
+                  </span>
+                ) : card.type === 'external_sheet' ? (
+                  <span className="flex items-center gap-1 text-[#047857] bg-[#ecfdf5] px-2.5 py-1 rounded-lg border border-[#a7f3d0] font-bold">
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-[#059669]" />
+                    기존 구글 시트
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 text-[#047857] bg-[#ecfdf5] px-2.5 py-1 rounded-lg border border-[#c2f0de] font-bold">
@@ -933,31 +1106,40 @@ export function SheetsRepository() {
       )}
 
       {/* 🌟 3. DELETE CONFIRMATION MODAL */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4 animate-fade-in">
-          <div className="bg-white rounded-[28px] p-6 w-full max-w-sm shadow-xl border border-white">
-            <h3 className="text-lg font-bold text-[#f04452] mb-2">정보 카드 삭제</h3>
-            <p className="text-[14px] text-[#4e5968] mb-2 leading-relaxed">정말로 이 정보 카드를 삭제하시겠습니까?</p>
-            <p className="text-[13px] text-[#8b95a1] mb-6 leading-relaxed bg-[#f8fafc] p-3 rounded-xl border border-[#e2e8f0]">
-              🗑️ 카드와 함께 <strong>구글 시트의 해당 탭도 자동으로 삭제</strong>됩니다.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setDeleteConfirmId(null)}
-                className="flex-1 py-3.5 bg-[#f2f4f6] text-[#4e5968] font-bold rounded-2xl hover:bg-[#e5e8eb] transition-colors text-[14px]"
-              >
-                취소
-              </button>
-              <button
-                onClick={() => handleDeleteCard(deleteConfirmId)}
-                className="flex-1 py-3.5 bg-[#f04452] text-white font-bold rounded-2xl hover:bg-[#d73a49] transition-colors text-[14px]"
-              >
-                카드 + 시트 탭 삭제
-              </button>
+      {deleteConfirmId && (() => {
+        const confirmCard = cards.find(c => c.id === deleteConfirmId);
+        const isAutoSheet = confirmCard?.type === 'sheet' && !!confirmCard?.gid;
+
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4 animate-fade-in">
+            <div className="bg-white rounded-[28px] p-6 w-full max-w-sm shadow-xl border border-white">
+              <h3 className="text-lg font-bold text-[#f04452] mb-2">정보 카드 삭제</h3>
+              <p className="text-[14px] text-[#4e5968] mb-2 leading-relaxed">정말로 이 정보 카드를 삭제하시겠습니까?</p>
+              <p className="text-[13px] text-[#8b95a1] mb-6 leading-relaxed bg-[#f8fafc] p-3 rounded-xl border border-[#e2e8f0]">
+                {isAutoSheet ? (
+                  <>🗑️ 카드와 함께 <strong>구글 시트의 해당 탭도 자동으로 삭제</strong>됩니다.</>
+                ) : (
+                  <>🗑️ 연동 정보 카드 목록에서 <strong>해당 카드가 삭제</strong>됩니다.</>
+                )}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="flex-1 py-3.5 bg-[#f2f4f6] text-[#4e5968] font-bold rounded-2xl hover:bg-[#e5e8eb] transition-colors text-[14px]"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={() => handleDeleteCard(deleteConfirmId)}
+                  className="flex-1 py-3.5 bg-[#f04452] text-white font-bold rounded-2xl hover:bg-[#d73a49] transition-colors text-[14px]"
+                >
+                  {isAutoSheet ? '카드 + 시트 탭 삭제' : '카드 삭제'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       {/* 🌟 IN-APP SMART MEMO VIEWER & EDITOR MODAL */}
       {activeMemoCard && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-6 animate-fade-in">
