@@ -9,6 +9,7 @@ import { Opinions } from './pages/Opinions';
 import { Reservations } from './pages/Reservations';
 import { Collator } from './pages/Collator';
 import { SheetsRepository } from './pages/SheetsRepository';
+import { WeeklyPlan } from './pages/WeeklyPlan';
 import { isFirebaseConfigured } from './firebase';
 import { Database, Check, Copy, Code, Link2, ShieldAlert } from 'lucide-react';
 
@@ -317,6 +318,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<PrivateRoute><Notices /></PrivateRoute>} />
+          <Route path="/weekly-plan" element={<PrivateRoute><WeeklyPlan /></PrivateRoute>} />
           <Route path="/calendar" element={<PrivateRoute><Calendar /></PrivateRoute>} />
           <Route path="/opinions" element={<PrivateRoute><Opinions /></PrivateRoute>} />
           <Route path="/reservations" element={<PrivateRoute><Reservations /></PrivateRoute>} />

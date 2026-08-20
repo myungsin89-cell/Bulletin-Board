@@ -26,6 +26,7 @@ const getSchoolCode = () => {
 
 const navItems = [
   { name: '대시보드', href: '/', icon: Bell },
+  { name: '주간학습', href: '/weekly-plan', icon: BookOpen },
   { name: '학년 달력', href: '/calendar', icon: CalendarDays },
   { name: '의견', href: '/opinions', icon: MessageSquare },
   { name: '예약', href: '/reservations', icon: Calendar },
