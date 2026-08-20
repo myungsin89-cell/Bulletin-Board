@@ -1,11 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { juganService, TimetableData, BgColorData } from '../utils/juganService';
 import { 
   BookOpen, Calendar, Save, RefreshCw, ChevronLeft, ChevronRight, 
-  Check, Edit2, Info, Sparkles, Layers, Palette, ShieldCheck, Plus
+  Check, Edit2, Info, Sparkles, Layers, Palette, ShieldCheck, Plus, Building2, UserCheck
 } from 'lucide-react';
 import { cn } from '../utils/cn';
+
+/**
+ * Robust Class Number Parser
+ * Parses input strings such as "4반", "4 반", "4", "4반 송명신", "4 반 송명신", "이음초 4학년 4반" to "4"
+ */
+export function parseClassNum(displayName: string | null | undefined): string {
+  if (!displayName) return '1';
+  
+  const trimmed = displayName.trim();
+  
+  // 1. Look for number immediately before '반' (e.g. "4반", "4 반", "4학년 4반")
+  const classBanMatch = trimmed.match(/(\d+)\s*반/);
+  if (classBanMatch) {
+    return classBanMatch[1];
+  }
+
+  // 2. Look for leading digits (e.g. "4", "4 송명신")
+  const leadingNumMatch = trimmed.match(/^(\d+)/);
+  if (leadingNumMatch) {
+    return leadingNumMatch[1];
+  }
+
+  // 3. Fallback: find any digit in the string
+  const anyDigitMatch = trimmed.match(/(\d+)/);
+  if (anyDigitMatch) {
+    return anyDigitMatch[1];
+  }
+
+  // Default fallback for non-homeroom roles (e.g. "교과", "부장")
+  return '1';
+}
 
 const DAYS = [
   { id: 1, label: '월요일' },
@@ -32,18 +63,21 @@ const PRESET_COLORS = [
 export function WeeklyPlan() {
   const { profile } = useAuth();
 
-  // Auto-detect class number from profile.displayName (e.g. "14반 송명신" -> "14", "2반" -> "2")
-  const detectedClass = React.useMemo(() => {
-    if (!profile?.displayName) return '1';
-    const match = profile.displayName.match(/(\d+)반?/);
-    return match ? match[1] : '1';
-  }, [profile]);
+  // Get board subtitle (e.g. "이음초등학교 4학년") for room matching
+  const boardSubTitle = useMemo(() => {
+    return localStorage.getItem('sb_sub_title') || '';
+  }, []);
 
-  const [roomCode, setRoomCode] = useState('4학년');
+  // Robust auto-detected class number from profile.displayName
+  const detectedClassNum = useMemo(() => {
+    return parseClassNum(profile?.displayName);
+  }, [profile?.displayName]);
+
   const [availableRooms, setAvailableRooms] = useState<string[]>(['4학년']);
+  const [roomCode, setRoomCode] = useState<string>('4학년');
   const [semester, setSemester] = useState<number>(1);
   const [weekNum, setWeekNum] = useState<number>(1);
-  const [classNum, setClassNum] = useState<string>(detectedClass);
+  const [classNum, setClassNum] = useState<string>(detectedClassNum);
 
   const [timetable, setTimetable] = useState<TimetableData>({});
   const [bgColors, setBgColors] = useState<BgColorData>({});
@@ -58,20 +92,38 @@ export function WeeklyPlan() {
   const [editSubject, setEditSubject] = useState('');
   const [editColor, setEditColor] = useState('#ffffff');
 
-  // Load available rooms on mount
+  // Load available rooms on mount and perform auto-matching with boardSubTitle
   useEffect(() => {
     juganService.getAvailableRooms().then(rooms => {
       setAvailableRooms(rooms);
+      
+      // Auto-match logic:
+      // 1. Exact match with boardSubTitle (e.g. "이음초등학교 4학년")
+      // 2. Partial match if boardSubTitle contains room name or vice versa
+      // 3. Fallback to first room
+      if (boardSubTitle) {
+        const exact = rooms.find(r => r.trim() === boardSubTitle.trim());
+        if (exact) {
+          setRoomCode(exact);
+          return;
+        }
+        const partial = rooms.find(r => boardSubTitle.includes(r) || r.includes(boardSubTitle));
+        if (partial) {
+          setRoomCode(partial);
+          return;
+        }
+      }
+
       if (rooms.length > 0 && !rooms.includes(roomCode)) {
         setRoomCode(rooms[0]);
       }
     });
-  }, []);
+  }, [boardSubTitle]);
 
   // Update classNum when profile changes
   useEffect(() => {
-    setClassNum(detectedClass);
-  }, [detectedClass]);
+    setClassNum(detectedClassNum);
+  }, [detectedClassNum]);
 
   // Load week data whenever roomCode, weekNum, semester, or classNum changes
   useEffect(() => {
@@ -144,16 +196,17 @@ export function WeeklyPlan() {
       {/* Header Title */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-1">
         <div>
-          <h2 className="text-[20px] font-bold text-[#191f28] flex items-center gap-2">
+          <h2 className="text-[20px] font-bold text-[#191f28] flex items-center gap-2 flex-wrap">
             <BookOpen className="w-6 h-6 text-[#10b981]" />
-            담임 주간학습 연동 관리자
+            <span>주간학습 반별 시간표 관리</span>
             <span className="text-[12px] font-bold bg-[#ecfdf5] text-[#047857] px-2.5 py-0.5 rounded-full border border-[#a7f3d0] flex items-center gap-1 shadow-2xs">
               <ShieldCheck className="w-3.5 h-3.5" />
-              {classNum}반 담임 전용
+              {classNum}반 담임 연결됨
             </span>
           </h2>
           <p className="text-[13.5px] text-[#8b95a1] mt-1">
-            여기서 작성한 시간표와 학급 메모는 선생님의 <b>[주간학습 프로그램(jugan-61d45)]</b>에 실시간으로 양방향 자동 반영됩니다.
+            {boardSubTitle && <span className="font-bold text-[#10b981] mr-1 shadow-2xs">[{boardSubTitle}]</span>}
+            입력 정보 <b>"{profile?.displayName}"</b>를 해석하여 <b>{classNum}반</b>으로 자동 매칭되었습니다.
           </p>
         </div>
 
@@ -185,7 +238,9 @@ export function WeeklyPlan() {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           {/* Room Selector */}
           <div>
-            <label className="block text-[12.5px] font-bold text-[#4e5968] mb-1.5">방 코드 (학년)</label>
+            <label className="block text-[12.5px] font-bold text-[#4e5968] mb-1.5 flex items-center gap-1">
+              <Building2 className="w-3.5 h-3.5 text-[#10b981]" /> 주간학습 방 코드
+            </label>
             <select
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value)}
@@ -254,20 +309,23 @@ export function WeeklyPlan() {
             </div>
           </div>
 
-          {/* Class Number Selector (Auto-detected from Login Name) */}
+          {/* Class Number Selector with Auto Detection Badge */}
           <div>
-            <label className="block text-[12.5px] font-bold text-[#4e5968] mb-1.5">담임 학급 (반)</label>
-            <div className="flex items-center gap-2">
-              <select
-                value={classNum}
-                onChange={(e) => setClassNum(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-[#ecfdf5] border border-[#a7f3d0] rounded-xl text-[13.5px] font-bold text-[#047857] outline-none focus:ring-2 focus:ring-[#10b981]"
-              >
-                {Array.from({ length: 15 }, (_, i) => String(i + 1)).map(c => (
-                  <option key={c} value={c}>{c}반 시간표</option>
-                ))}
-              </select>
-            </div>
+            <label className="block text-[12.5px] font-bold text-[#4e5968] mb-1.5 flex items-center justify-between">
+              <span>담임 학급 (반)</span>
+              <span className="text-[11px] text-[#10b981] font-bold">자동 매칭됨</span>
+            </label>
+            <select
+              value={classNum}
+              onChange={(e) => setClassNum(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-[#ecfdf5] border border-[#a7f3d0] rounded-xl text-[13.5px] font-bold text-[#047857] outline-none focus:ring-2 focus:ring-[#10b981]"
+            >
+              {Array.from({ length: 15 }, (_, i) => String(i + 1)).map(c => (
+                <option key={c} value={c}>
+                  {c}반 시간표 {c === detectedClassNum ? ' (내 학급 ⭐)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -280,14 +338,14 @@ export function WeeklyPlan() {
             <span>{roomCode} {semester}학기 {weekNum}주차 [{classNum}반 주간 시간표]</span>
           </h3>
           <span className="text-[12px] text-[#8b95a1] hidden sm:inline">
-            💡 셀을 클릭하여 과목명과 색상을 편집할 수 있습니다.
+            💡 시간표 셀을 클릭하면 과목과 배경색을 바로 수정할 수 있습니다.
           </span>
         </div>
 
         {isLoading ? (
           <div className="py-20 flex flex-col items-center justify-center gap-3 text-[#8b95a1]">
             <RefreshCw className="w-8 h-8 animate-spin text-[#10b981]" />
-            <span className="text-[14px] font-bold">주간학습 파이어베이스 데이터 불러오는 중...</span>
+            <span className="text-[14px] font-bold">주간학습 DB에서 반별 시간표를 가져오는 중...</span>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -359,7 +417,7 @@ export function WeeklyPlan() {
             className="px-4 py-2.5 bg-[#10b981] hover:bg-[#059669] text-white font-bold rounded-xl text-[13.5px] transition-all flex items-center gap-1.5 shadow-2xs"
           >
             <Save className="w-4 h-4" />
-            <span>메모 및 시간표 저장</span>
+            <span>시간표 & 메모 주간학습 DB 저장</span>
           </button>
         </div>
       </div>
