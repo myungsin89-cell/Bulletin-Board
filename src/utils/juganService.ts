@@ -41,19 +41,99 @@ export interface SpecialistTeacher {
   name?: string;
   desc?: string;
   bg?: string;
-  data?: { [day: string]: string[] }; // { "월": ["1반", "2반", ...], "화": [...] }
+  data?: { [day: string]: (string | null)[] }; // { "월": ["1", "2,7", null, ...], "화": [...] }
+  hiddenWeeks?: number[]; // Weeks where this specialist is hidden (not shown)
+  marks?: { [key: string]: string }; // Additional marker colors
+}
+
+const DAY_NAMES = ['월', '화', '수', '목', '금'];
+
+// Convert Firestore ju-gan timetable structure ({ "월": ["국어", "수학", ...], ... }) to cell map ("1-1": "국어")
+function parseJuGanTimetable(raw: any): TimetableData {
+  if (!raw || typeof raw !== 'object') return {};
+  const map: TimetableData = {};
+
+  // Case 1: Already cell map format ("1-1": "국어")
+  if (raw['1-1'] !== undefined || raw['2-1'] !== undefined) {
+    return raw;
+  }
+
+  // Case 2: Ju-gan format ({ "월": ["국어", "수학"], ... })
+  DAY_NAMES.forEach((dayName, dIdx) => {
+    const dayId = dIdx + 1;
+    const periodList = raw[dayName];
+    if (Array.isArray(periodList)) {
+      periodList.forEach((sub, pIdx) => {
+        if (sub && typeof sub === 'string' && sub.trim()) {
+          map[`${dayId}-${pIdx + 1}`] = sub.trim();
+        }
+      });
+    } else if (periodList && typeof periodList === 'object') {
+      Object.entries(periodList).forEach(([pIdx, sub]) => {
+        if (sub && typeof sub === 'string' && sub.trim()) {
+          map[`${dayId}-${Number(pIdx) + 1}`] = sub.trim();
+        }
+      });
+    }
+  });
+
+  return map;
+}
+
+// Convert Firestore ju-gan bgColors structure ({ "월": ["#ecfdf5", ...], ... }) to cell map ("1-1": "#ecfdf5")
+function parseJuGanBgColors(raw: any): BgColorData {
+  if (!raw || typeof raw !== 'object') return {};
+  const map: BgColorData = {};
+
+  if (raw['1-1'] !== undefined || raw['2-1'] !== undefined) {
+    return raw;
+  }
+
+  DAY_NAMES.forEach((dayName, dIdx) => {
+    const dayId = dIdx + 1;
+    const colorList = raw[dayName];
+    if (Array.isArray(colorList)) {
+      colorList.forEach((color, pIdx) => {
+        if (color && typeof color === 'string' && color.trim()) {
+          map[`${dayId}-${pIdx + 1}`] = color.trim();
+        }
+      });
+    } else if (colorList && typeof colorList === 'object') {
+      Object.entries(colorList).forEach(([pIdx, color]) => {
+        if (color && typeof color === 'string' && color.trim()) {
+          map[`${dayId}-${Number(pIdx) + 1}`] = color.trim();
+        }
+      });
+    }
+  });
+
+  return map;
+}
+
+// Convert back to Ju-gan format for saving to Firestore so Ju-gan app reads it 100% identically
+function serializeToJuGanFormat(map: { [key: string]: string }, maxPeriods: number = 6) {
+  const result: { [day: string]: (string | null)[] } = {};
+  DAY_NAMES.forEach((dayName, dIdx) => {
+    const dayId = dIdx + 1;
+    result[dayName] = [];
+    for (let p = 1; p <= maxPeriods; p++) {
+      const val = map[`${dayId}-${p}`] || null;
+      result[dayName].push(val);
+    }
+  });
+  return result;
 }
 
 export const juganService = {
-  // Fetch available rooms
+  // Fetch available rooms from jugan-61d45 Firestore
   async getAvailableRooms(): Promise<string[]> {
     try {
       const snap = await getDocs(collection(juganDb, 'rooms'));
       const roomIds = snap.docs.map(d => d.id);
-      return roomIds.length > 0 ? roomIds : ['4학년'];
+      return roomIds.length > 0 ? roomIds : ['이음초등학교4학년'];
     } catch (e) {
       console.warn('Failed to fetch rooms from juganDb:', e);
-      return ['4학년'];
+      return ['이음초등학교4학년'];
     }
   },
 
@@ -75,15 +155,29 @@ export const juganService = {
       const weekData = weekSnap.exists() ? weekSnap.data() : {};
       const classData = classSnap.exists() ? classSnap.data() : {};
 
-      const specialists = (weekData.specialists || roomData.specialists || []) as SpecialistTeacher[];
+      const rawTimetable = classData.timetable || {};
+      const rawBgColors = classData.bgColors || {};
+      
+      // Specialist priority: week-level overrides room-level when it exists and is non-empty
+      const weekSpecialists = (weekData.specialists || []) as SpecialistTeacher[];
+      const roomSpecialists = (roomData.specialists || []) as SpecialistTeacher[];
+      const specialists = weekSpecialists.length > 0 ? weekSpecialists : roomSpecialists;
+      
+      const specialistCells = weekData.specialistCells || {};
+      
+      // Reference boards (used for specialist reference timetables display)
+      const referenceBoards = (roomData.referenceBoards || []) as any[];
 
       return {
         roomData,
         weeklyMemo: weekData.weeklyMemo || '',
         targets: (weekData.targets || {}) as { [sub: string]: number },
-        timetable: (classData.timetable || {}) as TimetableData,
-        bgColors: (classData.bgColors || {}) as BgColorData,
-        specialists
+        timetable: parseJuGanTimetable(rawTimetable),
+        bgColors: parseJuGanBgColors(rawBgColors),
+        specialists,
+        specialistCells,
+        referenceBoards,
+        weekNum
       };
     } catch (e) {
       console.error('Failed to load jugan data:', e);
@@ -93,7 +187,10 @@ export const juganService = {
         targets: {},
         timetable: {},
         bgColors: {},
-        specialists: []
+        specialists: [],
+        specialistCells: {},
+        referenceBoards: [],
+        weekNum
       };
     }
   },
@@ -137,8 +234,10 @@ export const juganService = {
           if (!classWeeklyHours[cNum]) classWeeklyHours[cNum] = {};
           if (!classWeeklyHours[cNum][wNum]) classWeeklyHours[cNum][wNum] = {};
 
-          const timetable = cDoc.data().timetable || {};
-          Object.values(timetable).forEach((subName: any) => {
+          const rawTimetable = cDoc.data().timetable || {};
+          const timetableMap = parseJuGanTimetable(rawTimetable);
+
+          Object.values(timetableMap).forEach((subName: any) => {
             if (typeof subName === 'string' && subName.trim()) {
               const name = subName.trim();
               classWeeklyHours[cNum][wNum][name] = (classWeeklyHours[cNum][wNum][name] || 0) + 1;
@@ -164,7 +263,7 @@ export const juganService = {
     }
   },
 
-  // Save class timetable & background colors
+  // Save class timetable & background colors in Ju-gan standard format
   async saveClassData(
     roomCode: string,
     weekNum: number,
@@ -183,10 +282,13 @@ export const juganService = {
     await setDoc(rRef, { lastSavedAt: new Date() }, { merge: true });
     await setDoc(wRef, { _exists: true, ...(weeklyMemo !== undefined ? { weeklyMemo } : {}) }, { merge: true });
 
-    // Save class data
+    // Save class data serialized in standard Ju-gan format ({ "월": [...], ... })
+    const serializedTimetable = serializeToJuGanFormat(timetable);
+    const serializedBgColors = serializeToJuGanFormat(bgColors);
+
     await setDoc(classRef, cleanObject({
-      timetable,
-      bgColors
+      timetable: serializedTimetable,
+      bgColors: serializedBgColors
     }));
 
     return true;
