@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { juganService, TimetableData, BgColorData } from '../utils/juganService';
 import { 
   BookOpen, Calendar, Save, RefreshCw, ChevronLeft, ChevronRight, 
-  Check, Edit2, Info, Sparkles, Layers, Palette, ShieldCheck
+  Check, Edit2, Info, Sparkles, Layers, Palette, ShieldCheck, Plus
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
