@@ -68,7 +68,7 @@ const PRESET_COLORS = [
 export function WeeklyPlan() {
   const { profile } = useAuth();
 
-  // Active Main Menu: 'timetable' (반별 시간표) | 'validation' (시수확인)
+  // Active Main Menu: 'timetable' (반별 시간표) | 'validation' (시수확인 대시보드)
   const [activeMenu, setActiveMenu] = useState<'timetable' | 'validation'>('timetable');
 
   // Board SubTitle for auto-matching room name (e.g. "이음초등학교 4학년")
@@ -101,7 +101,7 @@ export function WeeklyPlan() {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
 
-  // Validation View State
+  // Validation Dashboard View State
   const [validationData, setValidationData] = useState<{
     subjects: { name: string }[];
     annualTargets: { [sub: string]: number };
@@ -181,6 +181,15 @@ export function WeeklyPlan() {
     });
     return counts;
   }, [timetable]);
+
+  // Total weekly filled hours vs total weekly target hours
+  const totalWeeklyFilled = useMemo(() => {
+    return Object.values(assignedHoursPerSubject).reduce((a: number, b: number) => a + b, 0);
+  }, [assignedHoursPerSubject]);
+
+  const totalWeeklyTarget = useMemo(() => {
+    return PRESET_SUBJECTS.reduce((a: number, s: string) => a + (Number(targets[s]) || 0), 0);
+  }, [targets]);
 
   // Handle Timetable Cell Click
   const handleCellClick = (day: number, period: number) => {
@@ -262,7 +271,7 @@ export function WeeklyPlan() {
   };
 
   return (
-    <div className="space-y-5 font-sans max-w-[1400px] mx-auto">
+    <div className="space-y-4 font-sans max-w-[1440px] mx-auto">
       {/* ── 1. Top Header Navigation Bar (ju-gan Exact Style) ── */}
       <div className="bg-white border-b border-[#e2e8f0] pb-3 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -309,7 +318,7 @@ export function WeeklyPlan() {
           </nav>
         </div>
 
-        {/* Right Status Badge & Class Info */}
+        {/* Right Status Badge & Save Action Button */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ecfdf5] border border-[#a7f3d0] rounded-xl text-[13px] font-bold text-[#047857]">
             <ShieldCheck className="w-4 h-4 text-[#10b981]" />
@@ -335,144 +344,96 @@ export function WeeklyPlan() {
         </div>
       )}
 
-      {/* ── 2. Top Week Toolbar & Control Card (ju-gan Exact Style) ── */}
-      <div className="bg-white rounded-2xl border border-[#e2e8f0] p-4 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          {/* Left: Week Selector Controls */}
+      {/* ── 2. Top Week Toolbar (ju-gan Exact Style) ── */}
+      <div className="bg-white rounded-2xl border border-[#e2e8f0] p-4 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        {/* Left: Week Selector Controls */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setWeekNum(prev => Math.max(1, prev - 1))}
+            className="w-9 h-9 flex items-center justify-center rounded-xl bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#0f172a] font-bold text-[16px] transition-colors"
+          >
+            &lt;
+          </button>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setWeekNum(prev => Math.max(1, prev - 1))}
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#0f172a] font-bold text-[16px] transition-colors"
-            >
-              &lt;
-            </button>
-            <div className="flex items-center gap-2">
-              <h2 className="text-[18px] font-extrabold text-[#0f172a]">
-                {weekNum}주차 시간표
-              </h2>
-              <span className="text-[12.5px] font-bold px-2.5 py-0.5 bg-[#ede9fe] text-[#6366f1] rounded-full border border-[#ddd6fe]">
-                {semester}학기
-              </span>
-            </div>
-            <button
-              onClick={() => setWeekNum(prev => Math.min(21, prev + 1))}
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#0f172a] font-bold text-[16px] transition-colors"
-            >
-              &gt;
-            </button>
+            <h2 className="text-[18px] font-extrabold text-[#0f172a]">
+              {weekNum}주차 시간표
+            </h2>
+            <span className="text-[12.5px] font-bold px-2.5 py-0.5 bg-[#ede9fe] text-[#6366f1] rounded-full border border-[#ddd6fe]">
+              {semester}학기
+            </span>
           </div>
-
-          {/* Right: Room, Semester, and Class Selectors */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Room Selector */}
-            <div className="flex items-center gap-1 bg-[#f8fafc] px-3 py-1.5 rounded-xl border border-[#e2e8f0] text-[13px]">
-              <span className="text-[#64748b] font-bold">방:</span>
-              <select
-                value={roomCode}
-                onChange={(e) => setRoomCode(e.target.value)}
-                className="bg-transparent font-bold text-[#0f172a] outline-none cursor-pointer"
-              >
-                {availableRooms.map(r => (
-                  <option key={r} value={r}>🏫 {r}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Semester Switcher */}
-            <div className="flex bg-[#f1f5f9] p-1 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setSemester(1)}
-                className={cn(
-                  "px-3 py-1 rounded-lg text-[12.5px] font-bold transition-all",
-                  semester === 1 ? "bg-white text-[#0f172a] shadow-2xs" : "text-[#64748b]"
-                )}
-              >
-                1학기
-              </button>
-              <button
-                type="button"
-                onClick={() => setSemester(2)}
-                className={cn(
-                  "px-3 py-1 rounded-lg text-[12.5px] font-bold transition-all",
-                  semester === 2 ? "bg-white text-[#0f172a] shadow-2xs" : "text-[#64748b]"
-                )}
-              >
-                2학기
-              </button>
-            </div>
-
-            {/* Class Selector with Auto-Parse Match */}
-            <div className="flex items-center gap-1 bg-[#ecfdf5] px-3 py-1.5 rounded-xl border border-[#a7f3d0] text-[13px]">
-              <span className="text-[#047857] font-bold">학급:</span>
-              <select
-                value={classNum}
-                onChange={(e) => setClassNum(e.target.value)}
-                className="bg-transparent font-bold text-[#047857] outline-none cursor-pointer"
-              >
-                {Array.from({ length: 15 }, (_, i) => String(i + 1)).map(c => (
-                  <option key={c} value={c}>
-                    {c}반 {c === detectedClassNum ? '⭐' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <button
+            onClick={() => setWeekNum(prev => Math.min(21, prev + 1))}
+            className="w-9 h-9 flex items-center justify-center rounded-xl bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#0f172a] font-bold text-[16px] transition-colors"
+          >
+            &gt;
+          </button>
         </div>
 
-        {/* Global Target Hours Chips for the Week */}
-        {activeMenu === 'timetable' && (
-          <div className="pt-2 border-t border-[#f1f5f9]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[12.5px] font-bold text-[#64748b] flex items-center gap-1">
-                🎯 {weekNum}주차 학년 과목별 목표 시수 및 [{classNum}반] 배정 현황
-              </span>
-              <span className="text-[11.5px] text-[#94a3b8]">
-                (배정 시수 / 주간 목표 차시)
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {PRESET_SUBJECTS.map(subName => {
-                const target = targets[subName] || 0;
-                const filled = assignedHoursPerSubject[subName] || 0;
-                const isOk = target > 0 ? filled === target : true;
-                const isOver = target > 0 && filled > target;
-
-                return (
-                  <div
-                    key={subName}
-                    className={cn(
-                      "px-3 py-1 rounded-xl border text-[12.5px] font-bold flex items-center gap-1.5 shadow-2xs transition-all",
-                      target === 0 && filled === 0 ? "bg-[#f8fafc] border-[#e2e8f0] text-[#94a3b8]" :
-                      isOk ? "bg-[#ecfdf5] border-[#a7f3d0] text-[#047857]" :
-                      isOver ? "bg-[#fff1f2] border-[#fecdd3] text-[#be123c]" :
-                      "bg-[#fffbeb] border-[#fde68a] text-[#b45309]"
-                    )}
-                  >
-                    <span>{subName}</span>
-                    <span className="font-mono text-[12.5px]">
-                      {filled}{target > 0 ? `/${target}` : ''}
-                    </span>
-                    {target > 0 && (
-                      <span className="text-[10.5px]">
-                        {isOk ? '✅' : isOver ? `🔴+${filled - target}` : `⚠️-${target - filled}`}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+        {/* Right: Room, Semester, and Class Selectors */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Room Selector */}
+          <div className="flex items-center gap-1 bg-[#f8fafc] px-3 py-1.5 rounded-xl border border-[#e2e8f0] text-[13px]">
+            <span className="text-[#64748b] font-bold">방:</span>
+            <select
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value)}
+              className="bg-transparent font-bold text-[#0f172a] outline-none cursor-pointer"
+            >
+              {availableRooms.map(r => (
+                <option key={r} value={r}>🏫 {r}</option>
+              ))}
+            </select>
           </div>
-        )}
+
+          {/* Semester Switcher */}
+          <div className="flex bg-[#f1f5f9] p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setSemester(1)}
+              className={cn(
+                "px-3 py-1 rounded-lg text-[12.5px] font-bold transition-all",
+                semester === 1 ? "bg-white text-[#0f172a] shadow-2xs" : "text-[#64748b]"
+              )}
+            >
+              1학기
+            </button>
+            <button
+              type="button"
+              onClick={() => setSemester(2)}
+              className={cn(
+                "px-3 py-1 rounded-lg text-[12.5px] font-bold transition-all",
+                semester === 2 ? "bg-white text-[#0f172a] shadow-2xs" : "text-[#64748b]"
+              )}
+            >
+              2학기
+            </button>
+          </div>
+
+          {/* Class Selector with Auto-Parse Match */}
+          <div className="flex items-center gap-1 bg-[#ecfdf5] px-3 py-1.5 rounded-xl border border-[#a7f3d0] text-[13px]">
+            <span className="text-[#047857] font-bold">학급:</span>
+            <select
+              value={classNum}
+              onChange={(e) => setClassNum(e.target.value)}
+              className="bg-transparent font-bold text-[#047857] outline-none cursor-pointer"
+            >
+              {Array.from({ length: 15 }, (_, i) => String(i + 1)).map(c => (
+                <option key={c} value={c}>
+                  {c}반 {c === detectedClassNum ? '⭐' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
-      {/* ── 3. MAIN TIMETABLE VIEW (ju-gan 1:1 Exact Layout) ── */}
+      {/* ── 3. MAIN TIMETABLE VIEW (ju-gan 3-Column Layout: Left Palette | Center Timetable & Memo | Right Hours Verification) ── */}
       {activeMenu === 'timetable' && (
-        <div className="flex flex-col lg:flex-row gap-5 items-start">
-          {/* LEFT SIDEBAR: Subject & Highlighter Color Palette */}
-          <aside className="w-full lg:w-[180px] shrink-0 sticky top-20 z-10">
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-4 shadow-xs space-y-4">
+        <div className="flex flex-col lg:flex-row gap-4 items-start">
+          {/* COLUMN 1: LEFT SIDEBAR (Subject & Highlighter Palette) */}
+          <aside className="w-full lg:w-[160px] shrink-0 sticky top-20 z-10">
+            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-3.5 shadow-xs space-y-4">
               {/* Subject Palette List */}
               <div>
                 <div className="flex justify-between items-center mb-2">
@@ -496,10 +457,10 @@ export function WeeklyPlan() {
                         type="button"
                         onClick={() => {
                           setSelectedSubject(isSelected ? null : sub);
-                          setSelectedColor(null); // Mutually exclusive selection
+                          setSelectedColor(null);
                         }}
                         className={cn(
-                          "w-full px-3 py-2 rounded-xl text-[13px] font-bold transition-all text-center border flex items-center justify-between",
+                          "w-full px-2.5 py-1.5 rounded-xl text-[12.5px] font-bold transition-all text-center border flex items-center justify-between",
                           isSelected
                             ? "bg-[#10b981] text-white border-[#059669] shadow-2xs"
                             : "bg-white text-[#0f172a] border-[#e2e8f0] hover:border-[#10b981] hover:bg-[#ecfdf5]/40"
@@ -515,10 +476,10 @@ export function WeeklyPlan() {
 
               <div className="h-[1px] bg-[#f1f5f9]" />
 
-              {/* Highlighter Color Palette Section */}
+              {/* Highlighter Color Palette */}
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-[13px] font-bold text-[#64748b] flex items-center gap-1">
+                  <h3 className="text-[12.5px] font-bold text-[#64748b] flex items-center gap-1">
                     <Palette className="w-3.5 h-3.5 text-[#10b981]" /> 형광펜 색상
                   </h3>
                   {selectedColor && (
@@ -539,12 +500,12 @@ export function WeeklyPlan() {
                         key={c.value}
                         onClick={() => {
                           setSelectedColor(isSelected ? null : c.value);
-                          setSelectedSubject(null); // Mutually exclusive selection
+                          setSelectedSubject(null);
                         }}
                         style={{ backgroundColor: c.value }}
                         title={c.name}
                         className={cn(
-                          "w-6 h-6 rounded-full cursor-pointer border transition-transform hover:scale-110 shadow-2xs",
+                          "w-5.5 h-5.5 rounded-full cursor-pointer border transition-transform hover:scale-110 shadow-2xs",
                           isSelected ? "ring-2 ring-[#10b981] ring-offset-1 border-[#10b981]" : "border-[#cbd5e1]"
                         )}
                       />
@@ -553,26 +514,26 @@ export function WeeklyPlan() {
                 </div>
               </div>
 
-              {/* Sidebar Hint Notice */}
+              {/* Hint Notice */}
               {(selectedSubject || selectedColor) && (
-                <div className="p-2.5 bg-[#ecfdf5] border border-[#a7f3d0] rounded-xl text-[11.5px] text-[#047857] font-bold text-center leading-snug">
-                  💡 {selectedSubject ? `[${selectedSubject}] 선택됨` : `[형광펜] 선택됨`}<br />
-                  시간표 셀을 클릭하여 적용하세요!
+                <div className="p-2 bg-[#ecfdf5] border border-[#a7f3d0] rounded-xl text-[11px] text-[#047857] font-bold text-center leading-snug">
+                  💡 {selectedSubject ? `[${selectedSubject}] 선택` : `[형광펜] 선택`}<br />
+                  시간표 클릭 시 적용!
                 </div>
               )}
             </div>
           </aside>
 
-          {/* RIGHT MAIN CONTENT: Timetable Excel Table & Weekly Memo */}
-          <div className="flex-1 min-w-0 space-y-5">
+          {/* COLUMN 2: CENTER (Timetable Grid & Weekly Memo) */}
+          <div className="flex-1 min-w-0 space-y-4">
             {/* Timetable Card */}
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-6 shadow-xs space-y-4">
-              <div className="flex justify-between items-center border-b border-[#f1f5f9] pb-3">
-                <h3 className="text-[17px] font-bold text-[#0f172a] flex items-center gap-2">
+            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-5 shadow-xs space-y-3">
+              <div className="flex justify-between items-center border-b border-[#f1f5f9] pb-2.5">
+                <h3 className="text-[16px] font-bold text-[#0f172a] flex items-center gap-2">
                   <span>{roomCode} [{classNum}반 시간표]</span>
                 </h3>
                 <span className="text-[12px] text-[#64748b]">
-                  셀 클릭 시 과목 및 색상 편집
+                  셀 클릭 시 과목/색상 편집
                 </span>
               </div>
 
@@ -586,9 +547,9 @@ export function WeeklyPlan() {
                   <table className="w-full border-collapse text-center text-[13.5px] border border-[#e2e8f0] rounded-xl overflow-hidden">
                     <thead>
                       <tr className="bg-[#f8fafc] text-[#475569] font-bold border-b border-[#e2e8f0]">
-                        <th className="p-3 w-16 border-r border-[#e2e8f0]">교시</th>
+                        <th className="p-2.5 w-14 border-r border-[#e2e8f0]">교시</th>
                         {DAYS.map(day => (
-                          <th key={day.id} className="p-3 min-w-[110px] border-r border-[#e2e8f0] last:border-r-0">
+                          <th key={day.id} className="p-2.5 min-w-[100px] border-r border-[#e2e8f0] last:border-r-0">
                             {day.label}요일
                           </th>
                         ))}
@@ -597,8 +558,8 @@ export function WeeklyPlan() {
                     <tbody>
                       {PERIODS.map(period => (
                         <tr key={period} className="border-b border-[#e2e8f0] last:border-b-0 hover:bg-[#f8fafc]/50 transition-colors">
-                          <td className="p-3 font-bold text-[#64748b] bg-[#f8fafc] border-r border-[#e2e8f0]">
-                            {period}교시
+                          <td className="p-2.5 font-bold text-[#64748b] bg-[#f8fafc] border-r border-[#e2e8f0]">
+                            {period}
                           </td>
                           {DAYS.map(day => {
                             const key = `${day.id}-${period}`;
@@ -610,13 +571,13 @@ export function WeeklyPlan() {
                                 key={key}
                                 onClick={() => handleCellClick(day.id, period)}
                                 style={{ backgroundColor: bg }}
-                                className="p-3 border-r border-[#e2e8f0] last:border-r-0 cursor-pointer hover:opacity-80 transition-all font-bold text-[#0f172a] h-14 select-none"
+                                className="p-2.5 border-r border-[#e2e8f0] last:border-r-0 cursor-pointer hover:opacity-80 transition-all font-bold text-[#0f172a] h-13 select-none"
                               >
                                 <div className="flex items-center justify-center h-full">
                                   {subject ? (
                                     <span>{subject}</span>
                                   ) : (
-                                    <span className="text-[#cbd5e1] text-[12px] font-normal flex items-center gap-1 hover:text-[#94a3b8]">
+                                    <span className="text-[#cbd5e1] text-[12px] font-normal flex items-center gap-0.5 hover:text-[#94a3b8]">
                                       <Plus className="w-3.5 h-3.5" /> 입력
                                     </span>
                                   )}
@@ -633,29 +594,161 @@ export function WeeklyPlan() {
             </div>
 
             {/* Weekly Memo Section */}
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-6 shadow-xs space-y-3">
-              <h3 className="text-[16px] font-bold text-[#0f172a] flex items-center gap-2">
-                <Edit2 className="w-4.5 h-4.5 text-[#10b981]" />
+            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-5 shadow-xs space-y-3">
+              <h3 className="text-[15px] font-bold text-[#0f172a] flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-[#10b981]" />
                 <span>{weekNum}주차 [{classNum}반 전달사항 및 학급 메모]</span>
               </h3>
               <textarea
                 value={weeklyMemo}
                 onChange={(e) => setWeeklyMemo(e.target.value)}
                 placeholder="이번 주 학급 전달사항, 준비물, 주의사항 등을 입력하세요..."
-                className="w-full h-28 p-4 bg-[#f8fafc] border border-[#e2e8f0] focus:border-[#10b981] focus:bg-white rounded-xl text-[14px] text-[#0f172a] outline-none transition-colors leading-relaxed resize-none font-sans"
+                className="w-full h-24 p-3.5 bg-[#f8fafc] border border-[#e2e8f0] focus:border-[#10b981] focus:bg-white rounded-xl text-[13.5px] text-[#0f172a] outline-none transition-colors leading-relaxed resize-none font-sans"
               />
               <div className="flex justify-end">
                 <button
                   onClick={handleSaveServer}
                   disabled={isSaving}
-                  className="px-4 py-2.5 bg-[#10b981] hover:bg-[#059669] text-white font-bold rounded-xl text-[13.5px] transition-all flex items-center gap-1.5 shadow-2xs"
+                  className="px-4 py-2 bg-[#10b981] hover:bg-[#059669] text-white font-bold rounded-xl text-[13px] transition-all flex items-center gap-1.5 shadow-2xs"
                 >
-                  <Save className="w-4 h-4" />
+                  <Save className="w-3.5 h-3.5" />
                   <span>주간학습 DB에 저장</span>
                 </button>
               </div>
             </div>
           </div>
+
+          {/* COLUMN 3: RIGHT SIDEBAR (Target Hours Verification & Settings Card - ju-gan Exact Placement) */}
+          <aside className="w-full lg:w-[280px] shrink-0 sticky top-20 z-10 space-y-4">
+            {/* RIGHT CARD 1: 📊 차시 확인 (Target vs Actual Hours Verification) */}
+            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-4 shadow-xs space-y-3">
+              <div className="flex justify-between items-center border-b border-[#f1f5f9] pb-2">
+                <h3 className="text-[14.5px] font-extrabold text-[#0f172a] flex items-center gap-1.5">
+                  <BarChart3 className="w-4 h-4 text-[#10b981]" />
+                  <span>차시 확인 [{classNum}반]</span>
+                </h3>
+                <span className="text-[11px] font-bold text-[#64748b] bg-[#f1f5f9] px-2 py-0.5 rounded-md">
+                  배정 / 목표
+                </span>
+              </div>
+
+              {/* 2-Column Subject Verification Table */}
+              <div className="overflow-hidden border border-[#e2e8f0] rounded-xl">
+                <table className="w-full text-[12.5px] text-center border-collapse">
+                  <thead>
+                    <tr className="bg-[#f8fafc] font-bold text-[#475569] border-b border-[#e2e8f0]">
+                      <th className="p-2 border-r border-[#e2e8f0]">과목</th>
+                      <th className="p-2 border-r border-[#e2e8f0]">배정/목표</th>
+                      <th className="p-2 border-r border-[#e2e8f0]">과목</th>
+                      <th className="p-2">배정/목표</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: Math.ceil(PRESET_SUBJECTS.length / 2) }).map((_, idx) => {
+                      const s1 = PRESET_SUBJECTS[idx * 2];
+                      const s2 = PRESET_SUBJECTS[idx * 2 + 1];
+
+                      const f1 = assignedHoursPerSubject[s1] || 0;
+                      const t1 = Number(targets[s1]) || 0;
+                      const isOk1 = t1 > 0 ? f1 === t1 : true;
+                      const isOver1 = t1 > 0 && f1 > t1;
+
+                      const f2 = s2 ? (assignedHoursPerSubject[s2] || 0) : 0;
+                      const t2 = s2 ? (Number(targets[s2]) || 0) : 0;
+                      const isOk2 = t2 > 0 ? f2 === t2 : true;
+                      const isOver2 = t2 > 0 && f2 > t2;
+
+                      return (
+                        <tr key={idx} className="border-b border-[#f1f5f9] last:border-b-0">
+                          {/* Subject 1 */}
+                          <td className="p-1.5 font-bold text-[#475569] bg-[#f8fafc]/50 border-r border-[#e2e8f0]">
+                            {s1}
+                          </td>
+                          <td className={cn(
+                            "p-1.5 font-mono font-bold border-r border-[#e2e8f0]",
+                            t1 > 0 && isOk1 ? "bg-[#ecfdf5] text-[#047857]" :
+                            t1 > 0 && isOver1 ? "bg-[#fff1f2] text-[#be123c]" :
+                            t1 > 0 && !isOk1 ? "bg-[#fffbeb] text-[#b45309]" : "text-[#94a3b8]"
+                          )}>
+                            {f1}/{t1}
+                          </td>
+
+                          {/* Subject 2 */}
+                          {s2 ? (
+                            <>
+                              <td className="p-1.5 font-bold text-[#475569] bg-[#f8fafc]/50 border-r border-[#e2e8f0]">
+                                {s2}
+                              </td>
+                              <td className={cn(
+                                "p-1.5 font-mono font-bold",
+                                t2 > 0 && isOk2 ? "bg-[#ecfdf5] text-[#047857]" :
+                                t2 > 0 && isOver2 ? "bg-[#fff1f2] text-[#be123c]" :
+                                t2 > 0 && !isOk2 ? "bg-[#fffbeb] text-[#b45309]" : "text-[#94a3b8]"
+                              )}>
+                                {f2}/{t2}
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="p-1.5 border-r border-[#e2e8f0]" />
+                              <td className="p-1.5" />
+                            </>
+                          )}
+                        </tr>
+                      );
+                    })}
+
+                    {/* Total Weekly Sum Row */}
+                    <tr className="bg-[#f8fafc] font-bold border-t border-[#e2e8f0]">
+                      <td colSpan={2} className="p-2 text-left pl-3 text-[#0f172a] border-r border-[#e2e8f0]">
+                        주간 총계
+                      </td>
+                      <td colSpan={2} className={cn(
+                        "p-2 font-mono font-extrabold text-[13px]",
+                        totalWeeklyTarget > 0 && totalWeeklyFilled === totalWeeklyTarget ? "text-[#047857]" : "text-[#b45309]"
+                      )}>
+                        {totalWeeklyFilled} / {totalWeeklyTarget} 차시
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* RIGHT CARD 2: 🎯 이번 주 과목별 목표 시수 설정 */}
+            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-4 shadow-xs space-y-3">
+              <div className="flex justify-between items-center border-b border-[#f1f5f9] pb-2">
+                <h3 className="text-[13.5px] font-bold text-[#0f172a]">
+                  이번 주 목표 차시 (학년 기준)
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[12px]">
+                {PRESET_SUBJECTS.map(subName => {
+                  const val = targets[subName] || 0;
+                  return (
+                    <div key={subName} className="flex items-center justify-between bg-[#f8fafc] px-2.5 py-1.5 rounded-xl border border-[#e2e8f0]">
+                      <span className="font-bold text-[#475569]">{subName}</span>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          max="20"
+                          value={val}
+                          onChange={(e) => {
+                            const newNum = parseInt(e.target.value) || 0;
+                            setTargets(prev => ({ ...prev, [subName]: newNum }));
+                          }}
+                          className="w-10 px-1 py-0.5 text-center bg-white border border-[#cbd5e1] rounded-md font-bold text-[#0f172a] outline-none focus:border-[#10b981]"
+                        />
+                        <span className="text-[11px] text-[#94a3b8]">차시</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </aside>
         </div>
       )}
 
