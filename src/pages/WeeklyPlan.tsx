@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { juganService, TimetableData, BgColorData } from '../utils/juganService';
+import { juganService, TimetableData, BgColorData, SpecialistTeacher } from '../utils/juganService';
 import { 
   BookOpen, Calendar, Save, RefreshCw, ChevronLeft, ChevronRight, 
-  Check, Edit2, Info, Sparkles, Layers, Palette, ShieldCheck, Plus, Building2, UserCheck, BarChart3, AlertCircle, AlertTriangle, X
+  Check, Edit2, Info, ShieldCheck, Plus, Building2, BarChart3, Palette
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
@@ -87,15 +87,12 @@ export function WeeklyPlan() {
   const [weekNum, setWeekNum] = useState<number>(1);
   const [classNum, setClassNum] = useState<string>(detectedClassNum);
 
-  // Timetable & Memo state
+  // Timetable, Memo & Specialist State
   const [timetable, setTimetable] = useState<TimetableData>({});
   const [bgColors, setBgColors] = useState<BgColorData>({});
   const [targets, setTargets] = useState<{ [sub: string]: number }>({});
   const [weeklyMemo, setWeeklyMemo] = useState<string>('');
-
-  // Active selection in Sidebar Palette
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
-  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [specialists, setSpecialists] = useState<SpecialistTeacher[]>([]);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -160,6 +157,7 @@ export function WeeklyPlan() {
     setBgColors(data.bgColors || {});
     setTargets(data.targets || {});
     setWeeklyMemo(data.weeklyMemo || '');
+    setSpecialists(data.specialists || []);
     setIsLoading(false);
   };
 
@@ -191,35 +189,9 @@ export function WeeklyPlan() {
     return PRESET_SUBJECTS.reduce((a: number, s: string) => a + (Number(targets[s]) || 0), 0);
   }, [targets]);
 
-  // Handle Timetable Cell Click
+  // Handle Timetable Cell Click -> Open editor modal
   const handleCellClick = (day: number, period: number) => {
     const key = `${day}-${period}`;
-
-    // 1. If subject is selected in sidebar -> Apply subject directly!
-    if (selectedSubject) {
-      const updatedTimetable = { ...timetable };
-      if (selectedSubject === 'DELETE_CELL') {
-        delete updatedTimetable[key];
-      } else {
-        updatedTimetable[key] = selectedSubject;
-      }
-      setTimetable(updatedTimetable);
-      return;
-    }
-
-    // 2. If highlighter color is selected in sidebar -> Apply color directly!
-    if (selectedColor) {
-      const updatedBgColors = { ...bgColors };
-      if (selectedColor === '#ffffff') {
-        delete updatedBgColors[key];
-      } else {
-        updatedBgColors[key] = selectedColor;
-      }
-      setBgColors(updatedBgColors);
-      return;
-    }
-
-    // 3. Otherwise -> Open cell editor modal
     setEditingCell({ day, period });
     setModalSubjectText(timetable[key] || '');
     setModalCellColor(bgColors[key] || '#ffffff');
@@ -271,7 +243,7 @@ export function WeeklyPlan() {
   };
 
   return (
-    <div className="space-y-4 font-sans max-w-[1440px] mx-auto">
+    <div className="space-y-4 font-sans max-w-[1440px] mx-auto pb-20">
       {/* ── 1. Top Header Navigation Bar (ju-gan Exact Style) ── */}
       <div className="bg-white border-b border-[#e2e8f0] pb-3 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -428,112 +400,75 @@ export function WeeklyPlan() {
         </div>
       </div>
 
-      {/* ── 3. MAIN TIMETABLE VIEW (ju-gan 3-Column Layout: Left Palette | Center Timetable & Memo | Right Hours Verification) ── */}
+      {/* ── 3. TOP GLOBAL TARGET HOURS BAR (ju-gan Exact Style) ── */}
+      {activeMenu === 'timetable' && (
+        <div className="bg-white rounded-2xl border border-[#e2e8f0] p-4 shadow-xs overflow-x-auto">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[13px] font-bold text-[#0f172a] flex items-center gap-1.5">
+              🎯 이번 주 학년 과목별 목표 차시 (주간학습 연동)
+            </span>
+            <span className="text-[11.5px] text-[#64748b] font-medium">
+              (각 과목의 이번 주 목표 차수를 입력할 수 있습니다)
+            </span>
+          </div>
+
+          <table className="w-full text-center text-[12.5px] border-collapse border border-[#e2e8f0] rounded-xl overflow-hidden">
+            <thead>
+              <tr className="bg-[#f8fafc] text-[#475569] font-bold border-b border-[#e2e8f0]">
+                <th className="p-2.5 w-28 bg-[#f1f5f9] border-r border-[#e2e8f0]">목표 차시</th>
+                {PRESET_SUBJECTS.map(s => (
+                  <th key={s} className="p-2.5 border-r border-[#e2e8f0] last:border-r-0 min-w-[65px]">
+                    {s}
+                  </th>
+                ))}
+                <th className="p-2.5 bg-[#ecfdf5] text-[#047857] font-extrabold w-20 border-l border-[#a7f3d0]">합계</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="p-2.5 font-bold text-[#334155] bg-[#f8fafc] border-r border-[#e2e8f0]">
+                  이번 주 목표
+                </td>
+                {PRESET_SUBJECTS.map(subName => {
+                  const val = targets[subName] || 0;
+                  return (
+                    <td key={subName} className="p-1.5 border-r border-[#e2e8f0]">
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        value={val}
+                        onChange={(e) => {
+                          const newNum = parseInt(e.target.value) || 0;
+                          setTargets(prev => ({ ...prev, [subName]: newNum }));
+                        }}
+                        className="w-11 px-1 py-1 text-center bg-[#f8fafc] focus:bg-white border border-[#e2e8f0] focus:border-[#10b981] rounded-lg font-bold text-[#0f172a] outline-none"
+                      />
+                    </td>
+                  );
+                })}
+                <td className="p-2.5 font-extrabold text-[#047857] bg-[#ecfdf5]/50 border-l border-[#a7f3d0] font-mono text-[13.5px]">
+                  {totalWeeklyTarget}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── 4. MAIN TIMETABLE & RIGHT VERIFICATION LAYOUT ── */}
       {activeMenu === 'timetable' && (
         <div className="flex flex-col lg:flex-row gap-4 items-start">
-          {/* COLUMN 1: LEFT SIDEBAR (Subject & Highlighter Palette) */}
-          <aside className="w-full lg:w-[160px] shrink-0 sticky top-20 z-10">
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-3.5 shadow-xs space-y-4">
-              {/* Subject Palette List */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-[13px] font-bold text-[#64748b]">과목 선택</h3>
-                  {selectedSubject && (
-                    <button
-                      onClick={() => setSelectedSubject(null)}
-                      className="text-[11px] text-[#ef4444] font-bold hover:underline"
-                    >
-                      해제
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto pr-1">
-                  {PRESET_SUBJECTS.map(sub => {
-                    const isSelected = selectedSubject === sub;
-                    return (
-                      <button
-                        key={sub}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSubject(isSelected ? null : sub);
-                          setSelectedColor(null);
-                        }}
-                        className={cn(
-                          "w-full px-2.5 py-1.5 rounded-xl text-[12.5px] font-bold transition-all text-center border flex items-center justify-between",
-                          isSelected
-                            ? "bg-[#10b981] text-white border-[#059669] shadow-2xs"
-                            : "bg-white text-[#0f172a] border-[#e2e8f0] hover:border-[#10b981] hover:bg-[#ecfdf5]/40"
-                        )}
-                      >
-                        <span>{sub}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="h-[1px] bg-[#f1f5f9]" />
-
-              {/* Highlighter Color Palette */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-[12.5px] font-bold text-[#64748b] flex items-center gap-1">
-                    <Palette className="w-3.5 h-3.5 text-[#10b981]" /> 형광펜 색상
-                  </h3>
-                  {selectedColor && (
-                    <button
-                      onClick={() => setSelectedColor(null)}
-                      className="text-[11px] text-[#ef4444] font-bold hover:underline"
-                    >
-                      해제
-                    </button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-5 gap-1.5 justify-items-center">
-                  {PRESET_COLORS.map(c => {
-                    const isSelected = selectedColor === c.value;
-                    return (
-                      <div
-                        key={c.value}
-                        onClick={() => {
-                          setSelectedColor(isSelected ? null : c.value);
-                          setSelectedSubject(null);
-                        }}
-                        style={{ backgroundColor: c.value }}
-                        title={c.name}
-                        className={cn(
-                          "w-5.5 h-5.5 rounded-full cursor-pointer border transition-transform hover:scale-110 shadow-2xs",
-                          isSelected ? "ring-2 ring-[#10b981] ring-offset-1 border-[#10b981]" : "border-[#cbd5e1]"
-                        )}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Hint Notice */}
-              {(selectedSubject || selectedColor) && (
-                <div className="p-2 bg-[#ecfdf5] border border-[#a7f3d0] rounded-xl text-[11px] text-[#047857] font-bold text-center leading-snug">
-                  💡 {selectedSubject ? `[${selectedSubject}] 선택` : `[형광펜] 선택`}<br />
-                  시간표 클릭 시 적용!
-                </div>
-              )}
-            </div>
-          </aside>
-
-          {/* COLUMN 2: CENTER (Timetable Grid & Weekly Memo) */}
+          {/* CENTER/LEFT: Main Timetable Table & Weekly Memo Section (FULL VISIBILITY, NO INNER SCROLLBAR) */}
           <div className="flex-1 min-w-0 space-y-4">
-            {/* Timetable Card */}
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-5 shadow-xs space-y-3">
-              <div className="flex justify-between items-center border-b border-[#f1f5f9] pb-2.5">
-                <h3 className="text-[16px] font-bold text-[#0f172a] flex items-center gap-2">
+            {/* Timetable Card - Fully Expanded Table */}
+            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-6 shadow-xs space-y-4">
+              <div className="flex justify-between items-center border-b border-[#f1f5f9] pb-3">
+                <h3 className="text-[17px] font-bold text-[#0f172a] flex items-center gap-2">
                   <span>{roomCode} [{classNum}반 시간표]</span>
                 </h3>
-                <span className="text-[12px] text-[#64748b]">
-                  셀 클릭 시 과목/색상 편집
+                <span className="text-[12.5px] text-[#64748b]">
+                  💡 셀을 클릭하여 과목명 및 배경 색상을 바로 변경할 수 있습니다.
                 </span>
               </div>
 
@@ -543,13 +478,13 @@ export function WeeklyPlan() {
                   <span className="text-[14px] font-bold">주간학습 DB에서 반별 시간표를 불러오는 중...</span>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-center text-[13.5px] border border-[#e2e8f0] rounded-xl overflow-hidden">
+                <div className="w-full">
+                  <table className="w-full border-collapse text-center text-[14px] border border-[#e2e8f0] rounded-xl">
                     <thead>
                       <tr className="bg-[#f8fafc] text-[#475569] font-bold border-b border-[#e2e8f0]">
-                        <th className="p-2.5 w-14 border-r border-[#e2e8f0]">교시</th>
+                        <th className="p-3 w-16 border-r border-[#e2e8f0]">교시</th>
                         {DAYS.map(day => (
-                          <th key={day.id} className="p-2.5 min-w-[100px] border-r border-[#e2e8f0] last:border-r-0">
+                          <th key={day.id} className="p-3 border-r border-[#e2e8f0] last:border-r-0">
                             {day.label}요일
                           </th>
                         ))}
@@ -558,8 +493,8 @@ export function WeeklyPlan() {
                     <tbody>
                       {PERIODS.map(period => (
                         <tr key={period} className="border-b border-[#e2e8f0] last:border-b-0 hover:bg-[#f8fafc]/50 transition-colors">
-                          <td className="p-2.5 font-bold text-[#64748b] bg-[#f8fafc] border-r border-[#e2e8f0]">
-                            {period}
+                          <td className="p-3 font-bold text-[#64748b] bg-[#f8fafc] border-r border-[#e2e8f0]">
+                            {period}교시
                           </td>
                           {DAYS.map(day => {
                             const key = `${day.id}-${period}`;
@@ -571,13 +506,13 @@ export function WeeklyPlan() {
                                 key={key}
                                 onClick={() => handleCellClick(day.id, period)}
                                 style={{ backgroundColor: bg }}
-                                className="p-2.5 border-r border-[#e2e8f0] last:border-r-0 cursor-pointer hover:opacity-80 transition-all font-bold text-[#0f172a] h-13 select-none"
+                                className="p-3 border-r border-[#e2e8f0] last:border-r-0 cursor-pointer hover:opacity-85 transition-all font-bold text-[#0f172a] h-16 select-none"
                               >
                                 <div className="flex items-center justify-center h-full">
                                   {subject ? (
-                                    <span>{subject}</span>
+                                    <span className="text-[14.5px]">{subject}</span>
                                   ) : (
-                                    <span className="text-[#cbd5e1] text-[12px] font-normal flex items-center gap-0.5 hover:text-[#94a3b8]">
+                                    <span className="text-[#cbd5e1] text-[12.5px] font-normal flex items-center gap-1 hover:text-[#94a3b8]">
                                       <Plus className="w-3.5 h-3.5" /> 입력
                                     </span>
                                   )}
@@ -595,14 +530,14 @@ export function WeeklyPlan() {
 
             {/* Weekly Memo Section */}
             <div className="bg-white rounded-2xl border border-[#e2e8f0] p-5 shadow-xs space-y-3">
-              <h3 className="text-[15px] font-bold text-[#0f172a] flex items-center gap-2">
+              <h3 className="text-[15.5px] font-bold text-[#0f172a] flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-[#10b981]" />
                 <span>{weekNum}주차 [{classNum}반 전달사항 및 학급 메모]</span>
               </h3>
               <textarea
                 value={weeklyMemo}
                 onChange={(e) => setWeeklyMemo(e.target.value)}
-                placeholder="이번 주 학급 전달사항, 준비물, 주의사항 등을 입력하세요..."
+                placeholder="이번 주 학급 전달사항, 준비물, 주의사항 등을 자유롭게 입력하세요..."
                 className="w-full h-24 p-3.5 bg-[#f8fafc] border border-[#e2e8f0] focus:border-[#10b981] focus:bg-white rounded-xl text-[13.5px] text-[#0f172a] outline-none transition-colors leading-relaxed resize-none font-sans"
               />
               <div className="flex justify-end">
@@ -612,18 +547,110 @@ export function WeeklyPlan() {
                   className="px-4 py-2 bg-[#10b981] hover:bg-[#059669] text-white font-bold rounded-xl text-[13px] transition-all flex items-center gap-1.5 shadow-2xs"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>주간학습 DB에 저장</span>
+                  <span>시간표 & 메모 주간학습 DB 저장</span>
                 </button>
               </div>
             </div>
+
+            {/* 🏫 SCROLL DOWN SECTION: 우리 반 배정 전담 시간표 (Specialist Teacher Timetables for Class) */}
+            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-5 shadow-xs space-y-4">
+              <div className="flex justify-between items-center border-b border-[#f1f5f9] pb-3">
+                <div>
+                  <h3 className="text-[16px] font-bold text-[#0f172a] flex items-center gap-2">
+                    <span>🏫 우리 반 ({classNum}반) 배정 전담 시간표</span>
+                  </h3>
+                  <p className="text-[12px] text-[#64748b] mt-0.5">
+                    우리 반 수업이 포함된 전담 선생님들의 전체 시간표입니다. (스크롤을 내려 바로 확인 가능)
+                  </p>
+                </div>
+                <span className="text-[12px] bg-[#ecfdf5] text-[#047857] font-bold px-3 py-1 rounded-full border border-[#a7f3d0]">
+                  {classNum}반 수업 강조됨
+                </span>
+              </div>
+
+              {specialists.length === 0 ? (
+                <div className="p-8 text-center bg-[#f8fafc] rounded-xl border border-[#e2e8f0] text-[#64748b] text-[13.5px]">
+                  <span>등록된 전담 배정 데이터가 없습니다. (전담 배정 메뉴에서 등록된 경우 자동 표시됩니다)</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {specialists.map((sp, sIdx) => {
+                    const spName = sp.subject || sp.name || `전담 ${sIdx + 1}`;
+                    const spDesc = sp.desc || '';
+                    const spBg = sp.bg || '#f8fafc';
+
+                    return (
+                      <div key={sIdx} className="border border-[#e2e8f0] rounded-xl overflow-hidden bg-white shadow-2xs">
+                        <div
+                          style={{ backgroundColor: spBg }}
+                          className="px-3.5 py-2.5 border-b border-[#e2e8f0] flex justify-between items-center"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-[14px] text-[#0f172a]">{spName}</span>
+                            {spDesc && (
+                              <span className="text-[12px] text-[#64748b] font-medium border-l border-[#cbd5e1] pl-2">
+                                {spDesc}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] font-bold text-[#047857] bg-white/80 px-2 py-0.5 rounded-md border border-[#a7f3d0]">
+                            전담 시간표
+                          </span>
+                        </div>
+
+                        <table className="w-full text-center text-[12px] border-collapse">
+                          <thead>
+                            <tr className="bg-[#f8fafc] text-[#475569] font-bold border-b border-[#e2e8f0]">
+                              <th className="p-1.5 w-10 border-r border-[#e2e8f0]">교시</th>
+                              {DAYS.map(d => (
+                                <th key={d.id} className="p-1.5 border-r border-[#e2e8f0] last:border-r-0">
+                                  {d.label}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {PERIODS.map(p => (
+                              <tr key={p} className="border-b border-[#f1f5f9] last:border-b-0">
+                                <td className="p-1.5 font-bold text-[#64748b] bg-[#f8fafc] border-r border-[#e2e8f0]">
+                                  {p}
+                                </td>
+                                {DAYS.map(d => {
+                                  const dayValList = sp.data?.[d.label] || [];
+                                  const cellVal = dayValList[p - 1] || '';
+                                  const isMyClass = String(cellVal).includes(classNum);
+
+                                  return (
+                                    <td
+                                      key={d.id}
+                                      className={cn(
+                                        "p-1.5 border-r border-[#f1f5f9] last:border-r-0 font-bold",
+                                        isMyClass
+                                          ? "bg-[#ecfdf5] text-[#047857] border-2 border-[#10b981] font-extrabold shadow-2xs"
+                                          : "text-[#475569]"
+                                      )}
+                                    >
+                                      {cellVal || '-'}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* COLUMN 3: RIGHT SIDEBAR (Target Hours Verification & Settings Card - ju-gan Exact Placement) */}
-          <aside className="w-full lg:w-[280px] shrink-0 sticky top-20 z-10 space-y-4">
-            {/* RIGHT CARD 1: 📊 차시 확인 (Target vs Actual Hours Verification) */}
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-4 shadow-xs space-y-3">
-              <div className="flex justify-between items-center border-b border-[#f1f5f9] pb-2">
-                <h3 className="text-[14.5px] font-extrabold text-[#0f172a] flex items-center gap-1.5">
+          {/* RIGHT SIDEBAR: 📊 차시 확인 (Target vs Actual Hours Verification Grid Card) */}
+          <aside className="w-full lg:w-[290px] shrink-0 sticky top-20 z-10 space-y-4">
+            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-4.5 shadow-xs space-y-3">
+              <div className="flex justify-between items-center border-b border-[#f1f5f9] pb-2.5">
+                <h3 className="text-[15px] font-extrabold text-[#0f172a] flex items-center gap-1.5">
                   <BarChart3 className="w-4 h-4 text-[#10b981]" />
                   <span>차시 확인 [{classNum}반]</span>
                 </h3>
@@ -714,45 +741,11 @@ export function WeeklyPlan() {
                 </table>
               </div>
             </div>
-
-            {/* RIGHT CARD 2: 🎯 이번 주 과목별 목표 시수 설정 */}
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-4 shadow-xs space-y-3">
-              <div className="flex justify-between items-center border-b border-[#f1f5f9] pb-2">
-                <h3 className="text-[13.5px] font-bold text-[#0f172a]">
-                  이번 주 목표 차시 (학년 기준)
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-[12px]">
-                {PRESET_SUBJECTS.map(subName => {
-                  const val = targets[subName] || 0;
-                  return (
-                    <div key={subName} className="flex items-center justify-between bg-[#f8fafc] px-2.5 py-1.5 rounded-xl border border-[#e2e8f0]">
-                      <span className="font-bold text-[#475569]">{subName}</span>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          min="0"
-                          max="20"
-                          value={val}
-                          onChange={(e) => {
-                            const newNum = parseInt(e.target.value) || 0;
-                            setTargets(prev => ({ ...prev, [subName]: newNum }));
-                          }}
-                          className="w-10 px-1 py-0.5 text-center bg-white border border-[#cbd5e1] rounded-md font-bold text-[#0f172a] outline-none focus:border-[#10b981]"
-                        />
-                        <span className="text-[11px] text-[#94a3b8]">차시</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </aside>
         </div>
       )}
 
-      {/* ── 4. VALIDATION VIEW (ju-gan 1:1 Exact 시수확인 대시보드) ── */}
+      {/* ── 5. VALIDATION VIEW (ju-gan 1:1 Exact 시수확인 대시보드) ── */}
       {activeMenu === 'validation' && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-[#e2e8f0] p-6 shadow-xs space-y-4">
@@ -875,7 +868,7 @@ export function WeeklyPlan() {
                 />
               </div>
 
-              {/* Preset Subject Buttons for fast clicking */}
+              {/* Fast Subject Quick Select Buttons */}
               <div className="flex flex-wrap gap-1.5">
                 {PRESET_SUBJECTS.map(s => (
                   <button

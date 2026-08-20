@@ -36,6 +36,14 @@ export interface BgColorData {
   [cellKey: string]: string; // e.g. "1-1": "#ecfdf5"
 }
 
+export interface SpecialistTeacher {
+  subject?: string;
+  name?: string;
+  desc?: string;
+  bg?: string;
+  data?: { [day: string]: string[] }; // { "월": ["1반", "2반", ...], "화": [...] }
+}
+
 export const juganService = {
   // Fetch available rooms
   async getAvailableRooms(): Promise<string[]> {
@@ -67,12 +75,15 @@ export const juganService = {
       const weekData = weekSnap.exists() ? weekSnap.data() : {};
       const classData = classSnap.exists() ? classSnap.data() : {};
 
+      const specialists = (weekData.specialists || roomData.specialists || []) as SpecialistTeacher[];
+
       return {
         roomData,
         weeklyMemo: weekData.weeklyMemo || '',
-        targets: weekData.targets || {},
+        targets: (weekData.targets || {}) as { [sub: string]: number },
         timetable: (classData.timetable || {}) as TimetableData,
-        bgColors: (classData.bgColors || {}) as BgColorData
+        bgColors: (classData.bgColors || {}) as BgColorData,
+        specialists
       };
     } catch (e) {
       console.error('Failed to load jugan data:', e);
@@ -81,7 +92,74 @@ export const juganService = {
         weeklyMemo: '',
         targets: {},
         timetable: {},
-        bgColors: {}
+        bgColors: {},
+        specialists: []
+      };
+    }
+  },
+
+  // Load all weeks and classes for Validation & Hours Verification View
+  async loadAllWeeksValidation(roomCode: string, semester: number) {
+    try {
+      const collectionName = semester === 2 ? 'sem2_weeks' : 'weeks';
+      const rRef = doc(juganDb, 'rooms', roomCode);
+      const roomSnap = await getDoc(rRef);
+      const roomData = roomSnap.exists() ? roomSnap.data() : {};
+      
+      const config = roomData.config || {};
+      const annualTargets = (config.annualTargets || {}) as { [sub: string]: number };
+      const rawSubjects = config.subjects || [
+        { name: '국어' }, { name: '수학' }, { name: '사회' }, { name: '과학' }, 
+        { name: '체육' }, { name: '음악' }, { name: '미술' }, { name: '영어' }, { name: '도덕' }, { name: '창체' }
+      ];
+
+      const subjects = rawSubjects.map((s: any) => (typeof s === 'string' ? { name: s } : s));
+
+      // Fetch all week docs
+      const weeksRef = collection(juganDb, 'rooms', roomCode, collectionName);
+      const weeksSnap = await getDocs(weeksRef);
+
+      const weekTargets: { [week: number]: { [subject: string]: number } } = {};
+      const classWeeklyHours: { [classNum: string]: { [week: number]: { [subject: string]: number } } } = {};
+
+      for (const wDoc of weeksSnap.docs) {
+        const wNum = parseInt(wDoc.id);
+        if (isNaN(wNum)) continue;
+        const wData = wDoc.data();
+        weekTargets[wNum] = wData.targets || {};
+
+        // Fetch classes for this week
+        const classesRef = collection(juganDb, 'rooms', roomCode, collectionName, wDoc.id, 'classes');
+        const classesSnap = await getDocs(classesRef);
+
+        classesSnap.docs.forEach(cDoc => {
+          const cNum = cDoc.id;
+          if (!classWeeklyHours[cNum]) classWeeklyHours[cNum] = {};
+          if (!classWeeklyHours[cNum][wNum]) classWeeklyHours[cNum][wNum] = {};
+
+          const timetable = cDoc.data().timetable || {};
+          Object.values(timetable).forEach((subName: any) => {
+            if (typeof subName === 'string' && subName.trim()) {
+              const name = subName.trim();
+              classWeeklyHours[cNum][wNum][name] = (classWeeklyHours[cNum][wNum][name] || 0) + 1;
+            }
+          });
+        });
+      }
+
+      return {
+        subjects,
+        annualTargets,
+        weekTargets,
+        classWeeklyHours
+      };
+    } catch (e) {
+      console.error('Failed to load validation data:', e);
+      return {
+        subjects: [],
+        annualTargets: {},
+        weekTargets: {},
+        classWeeklyHours: {}
       };
     }
   },
